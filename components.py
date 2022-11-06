@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 from networks import MLP, AE
 import rtdl
 
@@ -12,7 +13,8 @@ class Components():
                  preprocess=None,
                  network=None,
                  strategy=None,
-                 loss=None):
+                 loss=None,
+                 optimizer_name=None):
 
         # input data
         self.data = data
@@ -23,11 +25,23 @@ class Components():
         self.network = network
         self.strategy = strategy
         self.loss = loss
+        self.optimizer_name = optimizer_name
+
+    def gym(self): #
+        pool = {}
+
+        pool['augmentation'] = ['None']
+        pool['preprocess'] = ['minmax', 'normalize']
+        pool['network'] = ['MLP', 'AE', 'ResNet', 'FTT']
+        pool['strategy'] = ['None']
+        pool['loss'] = ['minus', 'inverse', 'hinge', 'deviation']
+        pool['optimizer'] = ['SGD', 'Adam', 'RMSprop']
+
+        return pool
 
     def data_augmentation(self):
-
-
-
+        # TODO
+        pass
 
     def data_preprocessing(self):
         if self.preprocess == 'minmax':
@@ -37,7 +51,6 @@ class Components():
 
         self.data['X_train'] = scaler.transform(self.data['X_train'])
         self.data['X_test'] = scaler.transform(self.data['X_test'])
-
 
     def network(self):
         '''
@@ -51,10 +64,10 @@ class Components():
         input_size = self.data['X_train'].shape[1]
 
         if self.network == 'MLP':
-            self.model = MLP(input_size=input_size, act_fun=)
+            self.model = MLP(input_size=input_size, act_fun=nn.ReLU())
 
         elif self.network == 'AE':
-            self.model = AE(input_size=input_size, act_fun=)
+            self.model = AE(input_size=input_size, act_fun=nn.ReLU())
 
         elif self.network == 'ResNet':
             self.model = rtdl.ResNet.make_baseline(
@@ -68,18 +81,21 @@ class Components():
             self.model.add_module('reg', nn.BatchNorm1d(num_features=1))
 
         elif self.network == 'FTT':
-            model = rtdl.FTTransformer.make_default(
+            self.model = rtdl.FTTransformer.make_default(
                 n_num_features=input_size,
                 cat_cardinalities=None,
                 last_layer_query_idx=[-1],  # it makes the model faster and does NOT affect its output
                 d_out=1,
             )
-            model.add_module('reg', nn.BatchNorm1d(num_features=1))
+            self.model.add_module('reg', nn.BatchNorm1d(num_features=1))
 
         else:
             raise NotImplementedError
 
+        return self.model
+
     def training_strategy(self):
+        # TODO
         pass
 
     def loss(self, s_n, s_a):
@@ -112,10 +128,28 @@ class Components():
 
         return loss
 
+    def optimizer(self):
+        # TODO: weight decay
+        if self.optimizer_name == 'SGD':
+        elif self.optimizer_name == 'Adam':
+        elif self.optimizer_name == 'RMSprop':
+            optimizer = torch.optim.RMSprop(self.model.parameters(), lr=self.lr)
 
 
-    def fit(self):
-        return model
+    def train(self):
+        # initialization
+        self.model = network()
+
+        # optimizer
+
+
+
+        # fitting
+
+
+
+
+        return self.model
 
     def predict_score(self):
 
