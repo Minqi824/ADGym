@@ -10,7 +10,7 @@ from utils import Utils
 
 # we decouple the network components from the existing literature
 class Components():
-    def __init__(self, data,
+    def __init__(self, data=None,
                  augmentation=None,
                  preprocess=None,
                  network_name=None,
@@ -57,6 +57,8 @@ class Components():
             scaler = MinMaxScaler().fit(self.data['X_train'])
         elif self.preprocess == 'normalize':
             scaler = Normalizer().fit(self.data['X_train'])
+        else:
+            raise NotImplementedError
 
         self.data['X_train'] = scaler.transform(self.data['X_train'])
         self.data['X_test'] = scaler.transform(self.data['X_test'])
@@ -175,7 +177,7 @@ class Components():
 
         return self
 
-    def train(self):
+    def f_train(self):
         # data augmentation
         self.f_augmentation()
 
@@ -212,7 +214,7 @@ class Components():
         return self
 
     @torch.no_grad()
-    def predict_score(self):
+    def f_predict_score(self):
         self.model.eval()
 
         _, score_test = self.model(self.test_tensor)
