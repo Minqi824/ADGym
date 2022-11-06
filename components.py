@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from torch import nn
 from networks import MLP, AE
@@ -7,6 +8,11 @@ from sklearn.preprocessing import MinMaxScaler, Normalizer
 from torch.utils.data import Subset, DataLoader, TensorDataset
 from utils import Utils
 
+
+# TODO
+# data augmentation
+# dropout, neurons, hidden layers
+# learning rate, weight decay
 
 # we decouple the network components from the existing literature
 class Components():
@@ -200,7 +206,13 @@ class Components():
                 self.model.zero_grad()
 
                 # loss forward
-                _, s = self.model(X)
+                if self.network_name == 'ResNet':
+                    s = self.model(X); s = s.squeeze()
+                elif self.network_name == 'FTT':
+                    s = self.model(x_num=X, x_cat=None); s = s.squeeze()
+                else:
+                    _, s = self.model(X)
+
                 s_n = s[y==0]
                 s_a = s[y==1]
                 loss = self.f_loss(s_n, s_a)
@@ -217,8 +229,34 @@ class Components():
     def f_predict_score(self):
         self.model.eval()
 
-        _, score_test = self.model(self.test_tensor)
+        if self.network_name == 'ResNet':
+            score_test = self.model(self.test_tensor); score_test = score_test.squeeze()
+        elif self.network_name == 'FTT':
+            score_test = self.model(self.test_tensor, x_cat=None); score_test = score_test.squeeze()
+        else:
+            _, score_test = self.model(self.test_tensor)
         score_test = score_test.numpy()
         metrics = self.utils.metric(y_true=self.data['y_test'], y_score=score_test, pos_label=1)
 
         return metrics
+
+
+# X_train = np.random.randn(1000, 6)
+# X_test = np.random.randn(1000, 6)
+#
+# y_train = np.random.choice([0,1], 1000)
+# y_test = np.random.choice([0,1], 1000)
+#
+# data = {'X_train': X_train, 'y_train':y_train, 'X_test':X_test, 'y_test':y_test}
+#
+# com = Components(data=data,
+#                  augmentation=None,
+#                  preprocess='minmax',
+#                  network_name='ResNet',
+#                  training_strategy=None,
+#                  loss_name='minus',
+#                  optimizer_name='SGD')
+#
+# com.f_train()
+# metrics = com.f_predict_score()
+# print(metrics)

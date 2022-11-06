@@ -1,5 +1,10 @@
 # AD Gym
 
+AD Gym could be discussed in several scenarios, including:
+- unsupervised
+- semi-supervised
+- supervised
+
 ### Data Augmentation
 - Mixup
 - ...
