@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from networks import MLP, AE
 import rtdl
+import argparse
 
 from sklearn.preprocessing import MinMaxScaler, Normalizer
 from torch.utils.data import Subset, DataLoader, TensorDataset
@@ -11,48 +12,76 @@ from utils import Utils
 
 # TODO
 # data augmentation
-# dropout, neurons, hidden layers
-# learning rate, weight decay
 
 # we decouple the network components from the existing literature
 class Components():
-    def __init__(self, data=None,
-                 augmentation=None,
-                 preprocess=None,
-                 network_name=None,
+    def __init__(self,
+                 data=None,
+                 augmentation:str=None,
+                 preprocess:str=None,
+                 network_architecture:str=None,
+                 layers:int=None,
+                 hidden_size_list:list=None,
+                 act_fun:str=None,
+                 dropout:float=None,
                  training_strategy=None,
-                 loss_name=None,
-                 optimizer_name=None):
+                 loss_name:str=None,
+                 optimizer_name:str=None,
+                 batch_resample:bool=None,
+                 epochs:int=None,
+                 batch_size:int=None,
+                 lr:float=None,
+                 weight_decay:float=None):
 
         self.utils = Utils()
-
-        # input data
         self.data = data
 
-        # global parameters
-        self.augmentation = augmentation # data augmentation
-        self.preprocess = preprocess # data preprocessing
-        self.network_name = network_name # network architecture name
-        self.training_strategy = training_strategy # training strategy
-        self.loss_name = loss_name # loss function name
-        self.optimizer_name = optimizer_name # optmizer name
+        ## data ##
+        self.augmentation = augmentation
+        self.preprocess = preprocess
 
-        self.batch_resample = True
-        self.epochs = 50
-        self.batch_size = 64
-        self.lr = 1e-3
+        ## network architecture ##
+        self.network_architecture = network_architecture
+        self.layers = layers
+        self.hidden_size_list = hidden_size_list
+        self.act_fun = act_fun
+        self.dropout = dropout
 
-    def gym(self): #
-        pool = {}
+        ## network fitting ##
+        self.training_strategy = training_strategy
+        self.loss_name = loss_name
+        self.optimizer_name = optimizer_name
+        self.batch_resample = batch_resample
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.lr = lr
+        self.weight_decay = weight_decay
 
-        pool['augmentation'] = ['None']
-        pool['preprocess'] = ['minmax', 'normalize']
-        pool['network_name'] = ['MLP', 'AE', 'ResNet', 'FTT']
-        pool['training_strategy'] = ['None']
-        pool['loss_name'] = ['minus', 'inverse', 'hinge', 'deviation']
-        pool['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
+    def gym(self):
+        gyms = {}
 
-        return pool
+        ## data ##
+        gyms['augmentation'] = [None]
+        gyms['preprocess'] = ['minmax', 'normalize']
+
+        ## network architecture ##
+        gyms['network_architecture'] = ['MLP', 'AE', 'ResNet', 'FTT']
+        gyms['layers'] = [1, 2, 4]
+        gyms['hidden_size_list'] = []
+        gyms['act_fun'] = ['Tanh', 'ReLU', 'LeakyReLU']
+        gyms['dropout'] = [0.0, 0.1, 0.3]
+
+        ## network fitting ##
+        gyms['training_strategy'] = [None]
+        gyms['loss_name'] = ['minus', 'inverse', 'hinge', 'deviation']
+        gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
+        gyms['batch_resample'] = [True, False]
+        gyms['epochs'] = [20, 50, 100]
+        gyms['batch_size'] = [16, 64, 256]
+        gyms['lr'] = [1e-1, 1e-2, 1e-3]
+        gyms['weight_decay'] = [1e-1, 1e-2, 1e-4]
+
+        return gyms
 
     def f_augmentation(self):
         # TODO
@@ -85,9 +114,6 @@ class Components():
 
         return self
 
-
-
-
     def f_network(self):
         '''
         We including several network architectures, including:
@@ -96,34 +122,40 @@ class Components():
         - ResNet
         - FTTransformer
         '''
-
         input_size = self.data['X_train'].shape[1]
 
-        if self.network_name == 'MLP':
-            self.model = MLP(input_size=input_size, act_fun=nn.ReLU())
+        if self.act_fun == 'Tanh':
+            act = nn.Tanh()
+        elif self.act_fun == 'ReLU':
+            act = nn.ReLU()
+        elif self.act_fun == 'LeakyReLU':
+            act = nn.LeakyReLU()
 
-        elif self.network_name == 'AE':
-            self.model = AE(input_size=input_size, act_fun=nn.ReLU())
+        if self.network_architecture == 'MLP':
+            self.model = MLP(layers=self.layers, input_size=input_size, hidden_size_list=self.hidden_size_list, act_fun=act, p=self.dropout)
 
-        elif self.network_name == 'ResNet':
+        elif self.network_architecture == 'AE':
+            self.model = AE(layers=self.layers, input_size=input_size, hidden_size_list=self.hidden_size_list, act_fun=act, p=self.dropout)
+
+        elif self.network_architecture == 'ResNet':
+            # dropout_first – the dropout rate of the first dropout layer in each Block.
+            # dropout_second – the dropout rate of the second dropout layer in each Block.
             self.model = rtdl.ResNet.make_baseline(
                         d_in=input_size,
                         d_main=128,
                         d_hidden=256,
-                        dropout_first=0.2,
+                        dropout_first=self.dropout,
                         dropout_second=0.0,
                         n_blocks=2,
                         d_out=1)
-            self.model.add_module('reg', nn.BatchNorm1d(num_features=1))
 
-        elif self.network_name == 'FTT':
+        elif self.network_architecture == 'FTT':
             self.model = rtdl.FTTransformer.make_default(
                 n_num_features=input_size,
                 cat_cardinalities=None,
                 last_layer_query_idx=[-1],  # it makes the model faster and does NOT affect its output
                 d_out=1,
             )
-            self.model.add_module('reg', nn.BatchNorm1d(num_features=1))
 
         else:
             raise NotImplementedError
@@ -170,14 +202,11 @@ class Components():
     def f_optimizer(self):
         # TODO: weight decay
         if self.optimizer_name == 'SGD':
-            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr)
-
+            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         elif self.optimizer_name == 'Adam':
-            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
-
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         elif self.optimizer_name == 'RMSprop':
-            self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=self.lr)
-
+            self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         else:
             raise NotImplementedError
 
@@ -206,13 +235,12 @@ class Components():
                 self.model.zero_grad()
 
                 # loss forward
-                if self.network_name == 'ResNet':
-                    s = self.model(X); s = s.squeeze()
-                elif self.network_name == 'FTT':
-                    s = self.model(x_num=X, x_cat=None); s = s.squeeze()
+                if self.network_architecture == 'FTT':
+                    s = self.model(x_num=X, x_cat=None)
                 else:
-                    _, s = self.model(X)
+                    s = self.model(X)
 
+                s = s.squeeze()
                 s_n = s[y==0]
                 s_a = s[y==1]
                 loss = self.f_loss(s_n, s_a)
@@ -229,34 +257,42 @@ class Components():
     def f_predict_score(self):
         self.model.eval()
 
-        if self.network_name == 'ResNet':
-            score_test = self.model(self.test_tensor); score_test = score_test.squeeze()
-        elif self.network_name == 'FTT':
-            score_test = self.model(self.test_tensor, x_cat=None); score_test = score_test.squeeze()
+        if self.network_architecture == 'FTT':
+            score_test = self.model(self.test_tensor, x_cat=None)
         else:
-            _, score_test = self.model(self.test_tensor)
-        score_test = score_test.numpy()
+            score_test = self.model(self.test_tensor)
+
+        score_test = score_test.squeeze().numpy()
         metrics = self.utils.metric(y_true=self.data['y_test'], y_score=score_test, pos_label=1)
 
         return metrics
 
 
-# X_train = np.random.randn(1000, 6)
-# X_test = np.random.randn(1000, 6)
-#
-# y_train = np.random.choice([0,1], 1000)
-# y_test = np.random.choice([0,1], 1000)
-#
-# data = {'X_train': X_train, 'y_train':y_train, 'X_test':X_test, 'y_test':y_test}
-#
-# com = Components(data=data,
-#                  augmentation=None,
-#                  preprocess='minmax',
-#                  network_name='ResNet',
-#                  training_strategy=None,
-#                  loss_name='minus',
-#                  optimizer_name='SGD')
-#
-# com.f_train()
-# metrics = com.f_predict_score()
-# print(metrics)
+X_train = np.random.randn(1000, 6)
+X_test = np.random.randn(1000, 6)
+
+y_train = np.random.choice([0,1], 1000)
+y_test = np.random.choice([0,1], 1000)
+
+data = {'X_train': X_train, 'y_train':y_train, 'X_test':X_test, 'y_test':y_test}
+
+com = Components(data=data,
+                 augmentation=None,
+                 preprocess='minmax',
+                 network_architecture='AE',
+                 layers=2,
+                 hidden_size_list=[100, 20],
+                 act_fun='ReLU',
+                 dropout=0.1,
+                 training_strategy=None,
+                 loss_name='deviation',
+                 optimizer_name='SGD',
+                 batch_resample=True,
+                 epochs=50,
+                 batch_size=64,
+                 lr=1e-3,
+                 weight_decay=1e-2)
+
+com.f_train()
+metrics = com.f_predict_score()
+print(metrics)

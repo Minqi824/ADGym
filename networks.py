@@ -4,69 +4,93 @@ import numpy as np
 
 # ADSD based on MLP backbone
 class MLP(nn.Module):
-    def __init__(self, input_size, act_fun):
+    def __init__(self, layers, input_size, hidden_size_list, act_fun, p):
         super(MLP, self).__init__()
+        assert layers == len(hidden_size_list)
 
-        self.feature = nn.Sequential(
-            nn.Linear(input_size, 100),
-            act_fun,
-            nn.Linear(100, 20),
-            act_fun
-        )
+        # feature representation layer
+        self.feature = nn.ModuleList()
+        for i in range(layers):
+            if i == 0:
+                self.feature.append(nn.Sequential(nn.Linear(input_size, hidden_size_list[i]),
+                                                  act_fun,
+                                                  nn.Dropout(p=p)))
+            else:
+                self.feature.append(nn.Sequential(nn.Linear(hidden_size_list[i-1], hidden_size_list[i]),
+                                                  act_fun,
+                                                  nn.Dropout(p=p)))
 
-        self.reg = nn.Sequential(
-            nn.Linear(20, 1),
-            nn.BatchNorm1d(num_features=1)
-        )
+        # anomaly scoring layer
+        self.reg = nn.Linear(20, 1)
 
     def forward(self, X):
-        feature = self.feature(X)
-        score = self.reg(feature)
+        # feature representation
+        for f in self.feature:
+            X = f(X)
 
-        return feature, score.squeeze()
+        # anomaly scoring
+        score = self.reg(X)
+
+        return score
 
 # ADSD based on AutoEncoder backbone, from "Feature Encoding with AutoEncoders for Weakly-supervised Anomaly Detection"
 class AE(nn.Module):
-    def __init__(self, input_size, act_fun):
+    def __init__(self, layers, input_size, hidden_size_list, act_fun, p):
         super(AE, self).__init__()
 
-        self.encoder = nn.Sequential(
-            nn.Linear(input_size, 128),
-            act_fun,
-            nn.Linear(128, 64),
-            act_fun
-        )
+        self.encoder = nn.ModuleList()
+        self.decoder = nn.ModuleList()
 
-        # if we add relu layer in the encoder, how to represent the direction for non-negative value?
+        for i in range(layers):
+            if i == 0:
+                self.encoder.append(nn.Sequential(nn.Linear(input_size, hidden_size_list[i]),
+                                                  act_fun,
+                                                  nn.Dropout(p=p)))
+            else:
+                self.encoder.append(nn.Sequential(nn.Linear(hidden_size_list[i-1], hidden_size_list[i]),
+                                                  act_fun,
+                                                  nn.Dropout(p=p)))
 
-        self.decoder = nn.Sequential(
-            nn.Linear(64, 128),
-            act_fun,
-            nn.Linear(128, input_size),
-            act_fun
-        )
+        for i in range(layers-1, -1, -1):
+            if i == 0:
+                self.decoder.append(nn.Sequential(nn.Linear(hidden_size_list[i], input_size),
+                                                  act_fun,
+                                                  nn.Dropout(p=p)))
+            else:
+                self.decoder.append(nn.Sequential(nn.Linear(hidden_size_list[i], hidden_size_list[i-1]),
+                                                  act_fun,
+                                                  nn.Dropout(p=p)))
 
         self.reg_1 = nn.Sequential(
-            nn.Linear(input_size+64+1, 256),
-            act_fun
+            nn.Linear(input_size+hidden_size_list[-1]+1, 256),
+            act_fun,
+            nn.Dropout(p=p)
         )
 
         self.reg_2 = nn.Sequential(
             nn.Linear(256+1, 32),
-            act_fun
+            act_fun,
+            nn.Dropout(p=p)
         )
 
         self.reg_3 = nn.Sequential(
-            nn.Linear(32+1, 1),
-            nn.BatchNorm1d(num_features=1)
+            nn.Linear(32+1, 1)
         )
 
     def forward(self, X):
         # hidden representation
-        h = self.encoder(X)
+        for i, e in enumerate(self.encoder):
+            if i == 0:
+                h = e(X)
+            else:
+                h = e(h)
 
         # reconstructed input vector
-        X_hat = self.decoder(h)
+        for i, d in enumerate(self.decoder):
+            if i == 0:
+                X_hat = d(h)
+            else:
+                X_hat = d(X_hat)
 
         # reconstruction residual vector
         r = torch.sub(X_hat, X)
@@ -82,4 +106,4 @@ class AE(nn.Module):
         feature = self.reg_2(torch.cat((feature, e), dim=1))
         score = self.reg_3(torch.cat((feature, e), dim=1))
 
-        return feature, score.squeeze()
+        return score
