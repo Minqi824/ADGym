@@ -16,6 +16,7 @@ from utils import Utils
 # we decouple the network components from the existing literature
 class Components():
     def __init__(self,
+                 seed:int=None,
                  data=None,
                  augmentation:str=None,
                  preprocess:str=None,
@@ -34,6 +35,7 @@ class Components():
                  weight_decay:float=None):
 
         self.utils = Utils()
+        self.seed = seed
         self.data = data
 
         # whether to use the gpu device
@@ -81,7 +83,7 @@ class Components():
         gyms['training_strategy'] = [None]
         gyms['loss_name'] = ['minus', 'inverse', 'hinge', 'deviation']
         gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
-        gyms['batch_resample'] = [True]
+        gyms['batch_resample'] = [True, False]
         gyms['epochs'] = [20, 50, 100]
         gyms['batch_size'] = [16, 64, 256]
         gyms['lr'] = [1e-2, 1e-3]
@@ -192,7 +194,7 @@ class Components():
             loss = torch.mean(s_n + torch.max(torch.zeros_like(s_a), 5.0 - s_a))
 
         elif self.loss_name == 'inverse':
-            loss = torch.mean(torch.pow(s_n, torch.ones_like(s_n)) + torch.pow(s_a, -1 * torch.ones_like(s_a)))
+            loss = torch.mean(torch.pow(s_n, torch.ones_like(s_n))) + torch.mean(torch.pow(s_a, -1 * torch.ones_like(s_a)))
 
         elif self.loss_name == 'hinge':
             loss = ranking_loss(s_a, s_n, torch.ones_like(s_a))
@@ -224,6 +226,8 @@ class Components():
         return self
 
     def f_train(self):
+        self.utils.set_seed(self.seed)
+
         # data augmentation
         self.f_augmentation()
 
@@ -275,7 +279,7 @@ class Components():
         else:
             score_test = self.model(self.test_tensor.to(self.device))
 
-        score_test = score_test.squeeze().numpy()
+        score_test = score_test.squeeze().cpu().numpy()
         metrics = self.utils.metric(y_true=self.data['y_test'], y_score=score_test, pos_label=1)
 
         return metrics
