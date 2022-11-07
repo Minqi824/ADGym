@@ -37,6 +37,7 @@ class MLP(nn.Module):
 class AE(nn.Module):
     def __init__(self, layers, input_size, hidden_size_list, act_fun, p):
         super(AE, self).__init__()
+        assert layers == len(hidden_size_list)
 
         self.encoder = nn.ModuleList()
         self.decoder = nn.ModuleList()

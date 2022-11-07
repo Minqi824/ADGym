@@ -66,8 +66,8 @@ class Components():
 
         ## network architecture ##
         gyms['network_architecture'] = ['MLP', 'AE', 'ResNet', 'FTT']
-        gyms['layers'] = [1, 2, 4]
-        gyms['hidden_size_list'] = []
+        gyms['layers'] = [1, 2, 3]
+        gyms['hidden_size_list'] = [[20], [100, 20], [100, 50, 20]]
         gyms['act_fun'] = ['Tanh', 'ReLU', 'LeakyReLU']
         gyms['dropout'] = [0.0, 0.1, 0.3]
 
@@ -75,11 +75,11 @@ class Components():
         gyms['training_strategy'] = [None]
         gyms['loss_name'] = ['minus', 'inverse', 'hinge', 'deviation']
         gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
-        gyms['batch_resample'] = [True, False]
+        gyms['batch_resample'] = [True]
         gyms['epochs'] = [20, 50, 100]
         gyms['batch_size'] = [16, 64, 256]
-        gyms['lr'] = [1e-1, 1e-2, 1e-3]
-        gyms['weight_decay'] = [1e-1, 1e-2, 1e-4]
+        gyms['lr'] = [1e-2, 1e-3]
+        gyms['weight_decay'] = [1e-2, 1e-4]
 
         return gyms
 
@@ -140,13 +140,15 @@ class Components():
         elif self.network_architecture == 'ResNet':
             # dropout_first – the dropout rate of the first dropout layer in each Block.
             # dropout_second – the dropout rate of the second dropout layer in each Block.
+            assert len(set(self.hidden_size_list)) == 1
+
             self.model = rtdl.ResNet.make_baseline(
                         d_in=input_size,
                         d_main=128,
-                        d_hidden=256,
+                        d_hidden=self.hidden_size_list[0],
                         dropout_first=self.dropout,
                         dropout_second=0.0,
-                        n_blocks=2,
+                        n_blocks=self.layers,
                         d_out=1)
 
         elif self.network_architecture == 'FTT':
@@ -154,6 +156,7 @@ class Components():
                 n_num_features=input_size,
                 cat_cardinalities=None,
                 last_layer_query_idx=[-1],  # it makes the model faster and does NOT affect its output
+                n_blocks=self.layers,
                 d_out=1,
             )
 
@@ -268,31 +271,48 @@ class Components():
         return metrics
 
 
-X_train = np.random.randn(1000, 6)
-X_test = np.random.randn(1000, 6)
-
-y_train = np.random.choice([0,1], 1000)
-y_test = np.random.choice([0,1], 1000)
-
-data = {'X_train': X_train, 'y_train':y_train, 'X_test':X_test, 'y_test':y_test}
-
-com = Components(data=data,
-                 augmentation=None,
-                 preprocess='minmax',
-                 network_architecture='AE',
-                 layers=2,
-                 hidden_size_list=[100, 20],
-                 act_fun='ReLU',
-                 dropout=0.1,
-                 training_strategy=None,
-                 loss_name='deviation',
-                 optimizer_name='SGD',
-                 batch_resample=True,
-                 epochs=50,
-                 batch_size=64,
-                 lr=1e-3,
-                 weight_decay=1e-2)
-
-com.f_train()
-metrics = com.f_predict_score()
-print(metrics)
+# X_train = np.random.randn(1000, 6)
+# X_test = np.random.randn(1000, 6)
+#
+# y_train = np.random.choice([0,1], 1000)
+# y_test = np.random.choice([0,1], 1000)
+#
+# data = {'X_train': X_train, 'y_train':y_train, 'X_test':X_test, 'y_test':y_test}
+#
+# # com = Components(data=data,
+# #                  augmentation=None,
+# #                  preprocess='minmax',
+# #                  network_architecture='AE',
+# #                  layers=2,
+# #                  hidden_size_list=[100, 20],
+# #                  act_fun='ReLU',
+# #                  dropout=0.1,
+# #                  training_strategy=None,
+# #                  loss_name='deviation',
+# #                  optimizer_name='SGD',
+# #                  batch_resample=True,
+# #                  epochs=50,
+# #                  batch_size=64,
+# #                  lr=1e-3,
+# #                  weight_decay=1e-2)
+#
+#
+# com = Components(data=data,augmentation= None,
+#                  preprocess= 'normalize',
+#                  network_architecture= 'AE',
+#                  layers= 2,
+#                  hidden_size_list= [100, 50, 20],
+#                  act_fun= 'Tanh',
+#                  dropout= 0.3,
+#                  training_strategy= None,
+#                  loss_name= 'deviation',
+#                  optimizer_name= 'Adam',
+#                  batch_resample= False,
+#                  epochs= 100,
+#                  batch_size= 256,
+#                  lr= 0.01,
+#                  weight_decay= 0.01)
+#
+# com.f_train()
+# metrics = com.f_predict_score()
+# print(metrics)
