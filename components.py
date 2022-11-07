@@ -36,6 +36,12 @@ class Components():
         self.utils = Utils()
         self.data = data
 
+        # whether to use the gpu device
+        if network_architecture == 'FTT':
+            self.device = self.utils.get_device(gpu_specific=True)
+        else:
+            self.device = self.utils.get_device(gpu_specific=False)
+
         ## data ##
         self.augmentation = augmentation
         self.preprocess = preprocess
@@ -140,12 +146,12 @@ class Components():
         elif self.network_architecture == 'ResNet':
             # dropout_first – the dropout rate of the first dropout layer in each Block.
             # dropout_second – the dropout rate of the second dropout layer in each Block.
-            assert len(set(self.hidden_size_list)) == 1
+            # assert len(set(self.hidden_size_list)) == 1
 
             self.model = rtdl.ResNet.make_baseline(
                         d_in=input_size,
                         d_main=128,
-                        d_hidden=self.hidden_size_list[0],
+                        d_hidden=self.hidden_size_list[-1],
                         dropout_first=self.dropout,
                         dropout_second=0.0,
                         n_blocks=self.layers,
@@ -162,6 +168,8 @@ class Components():
 
         else:
             raise NotImplementedError
+
+        self.model.to(self.device)
 
         return self
 
@@ -233,6 +241,8 @@ class Components():
             for batch in self.train_loader:
                 # data
                 X, y = batch
+                # to device
+                X = X.to(self.device); y = y.to(self.device)
 
                 # clear gradient
                 self.model.zero_grad()
@@ -261,9 +271,9 @@ class Components():
         self.model.eval()
 
         if self.network_architecture == 'FTT':
-            score_test = self.model(self.test_tensor, x_cat=None)
+            score_test = self.model(self.test_tensor.to(self.device), x_cat=None)
         else:
-            score_test = self.model(self.test_tensor)
+            score_test = self.model(self.test_tensor.to(self.device))
 
         score_test = score_test.squeeze().numpy()
         metrics = self.utils.metric(y_true=self.data['y_test'], y_score=score_test, pos_label=1)
