@@ -65,29 +65,55 @@ class Components():
         self.lr = lr
         self.weight_decay = weight_decay
 
-    def gym(self):
-        gyms = {}
+    def gym(self, mode='small'):
+        # small or large search space
+        if mode == 'large':
+            gyms = {}
+            ## data ##
+            gyms['augmentation'] = [None]
+            gyms['preprocess'] = ['minmax', 'normalize']
 
-        ## data ##
-        gyms['augmentation'] = [None]
-        gyms['preprocess'] = ['minmax', 'normalize']
+            ## network architecture ##
+            gyms['network_architecture'] = ['MLP', 'AE', 'ResNet', 'FTT']
+            gyms['layers'] = [1, 2, 3]
+            gyms['hidden_size_list'] = [[20], [100, 20], [100, 50, 20]]
+            gyms['act_fun'] = ['Tanh', 'ReLU', 'LeakyReLU']
+            gyms['dropout'] = [0.0, 0.1, 0.3]
 
-        ## network architecture ##
-        gyms['network_architecture'] = ['MLP', 'AE', 'ResNet', 'FTT']
-        gyms['layers'] = [1, 2, 3]
-        gyms['hidden_size_list'] = [[20], [100, 20], [100, 50, 20]]
-        gyms['act_fun'] = ['Tanh', 'ReLU', 'LeakyReLU']
-        gyms['dropout'] = [0.0, 0.1, 0.3]
+            ## network fitting ##
+            gyms['training_strategy'] = [None]
+            gyms['loss_name'] = ['minus', 'inverse', 'hinge', 'deviation']
+            gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
+            gyms['batch_resample'] = [True, False]
+            gyms['epochs'] = [20, 50, 100]
+            gyms['batch_size'] = [16, 64, 256]
+            gyms['lr'] = [1e-2, 1e-3]
+            gyms['weight_decay'] = [1e-2, 1e-4]
 
-        ## network fitting ##
-        gyms['training_strategy'] = [None]
-        gyms['loss_name'] = ['minus', 'inverse', 'hinge', 'deviation']
-        gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
-        gyms['batch_resample'] = [True, False]
-        gyms['epochs'] = [20, 50, 100]
-        gyms['batch_size'] = [16, 64, 256]
-        gyms['lr'] = [1e-2, 1e-3]
-        gyms['weight_decay'] = [1e-2, 1e-4]
+        elif mode == 'small':
+            gyms = {}
+            ## data ##
+            gyms['augmentation'] = [None]
+            gyms['preprocess'] = ['minmax']
+
+            ## network architecture ##
+            gyms['network_architecture'] = ['MLP', 'AE', 'ResNet', 'FTT']
+            gyms['layers'] = [2]
+            gyms['hidden_size_list'] = [[100, 20]]
+            gyms['act_fun'] = ['Tanh', 'ReLU', 'LeakyReLU']
+            gyms['dropout'] = [0.0]
+
+            ## network fitting ##
+            gyms['training_strategy'] = [None]
+            gyms['loss_name'] = ['minus', 'inverse', 'hinge', 'deviation']
+            gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
+            gyms['batch_resample'] = [True, False]
+            gyms['epochs'] = [50]
+            gyms['batch_size'] = [256]
+            gyms['lr'] = [1e-2, 1e-3]
+            gyms['weight_decay'] = [1e-2]
+        else:
+            raise NotImplementedError
 
         return gyms
 

@@ -10,8 +10,9 @@ from data_generator import DataGenerator
 from components import Components
 
 class ADGym():
-    def __init__(self, la=0.20):
+    def __init__(self, la=0.10, suffix=None):
         self.la = la
+        self.suffix = suffix
         self.seed_list = list(np.arange(3) + 1)
 
         if isinstance(la, int):
@@ -61,7 +62,7 @@ class ADGym():
 
         return dataset_list
 
-    def generate_gyms(self):
+    def generate_gyms(self, size=100):
         # generator combinations of different components
         com = Components()
         print(com.gym())
@@ -97,8 +98,9 @@ class ADGym():
             gyms.append(gym)
 
         # random selection
-        idx = np.random.choice(np.arange(len(gyms)), 100, replace=False)
-        gyms = [gyms[_] for _ in idx]
+        if len(gyms) > size:
+            idx = np.random.choice(np.arange(len(gyms)), size, replace=False)
+            gyms = [gyms[_] for _ in idx]
         # remove duplicates
         gyms = list(unique_everseen(gyms))
 
@@ -170,10 +172,10 @@ class ADGym():
                 print(f'Dataset: {dataset}, Current combination: {gym}, training sucessfully.')
 
                 # output
-                df_results_AUCROC.to_csv('result_AUCROC.csv', index=True)
-                df_results_AUCPR.to_csv('result_AUCPR.csv', index=True)
-                df_results_runtime.to_csv('result_runtime.csv', index=True)
+                df_results_AUCROC.to_csv('result_AUCROC_' + self.suffix + '.csv', index=True)
+                df_results_AUCPR.to_csv('result_AUCPR_' + self.suffix + '.csv', index=True)
+                df_results_runtime.to_csv('result_runtime_' + self.suffix + '.csv', index=True)
 
 
-adgym = ADGym()
+adgym = ADGym(suffix='small')
 adgym.run()
