@@ -19,6 +19,11 @@ class Utils():
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
+    # generate unique value
+    def unique(self, a, b):
+        u = 0.5 * (a + b) * (a + b + 1) + b
+        return int(u)
+
     def get_device(self, gpu_specific=False):
         if gpu_specific:
             if torch.cuda.is_available():

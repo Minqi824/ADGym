@@ -1,6 +1,6 @@
 import os
 import sys
-from myutils import Utils
+from utils import Utils
 
 from baseline.GANomaly.model import generator
 from baseline.GANomaly.model import discriminator

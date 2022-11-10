@@ -46,10 +46,15 @@ class RunPipeline():
         self.data_generator = DataGenerator(generate_duplicates=self.generate_duplicates,
                                             n_samples_threshold=self.n_samples_threshold)
 
+        # # ratio of labeled anomalies
+        # self.rla_list = [0.00, 0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 1.00]
+        # # number of labeled anomalies
+        # self.nla_list = [0, 1, 5, 10, 25, 50, 75, 100]
+
         # ratio of labeled anomalies
-        self.rla_list = [0.00, 0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 1.00]
+        self.rla_list = [0.00, 0.10]
         # number of labeled anomalies
-        self.nla_list = [0, 1, 5, 10, 25, 50, 75, 100]
+        self.nla_list = None
 
         # seed list
         self.seed_list = list(np.arange(3) + 1)
@@ -79,13 +84,15 @@ class RunPipeline():
             from baseline.PReNet.run import PReNet
             from baseline.FEAWAD.run import FEAWAD
 
-            self.model_dict = {'GANomaly': GANomaly,
-                               'DeepSAD': DeepSAD,
-                               'REPEN': REPEN,
-                               'DevNet': DevNet,
-                               'PReNet': PReNet,
-                               'FEAWAD': FEAWAD,
-                               'XGBOD': PYOD}
+            # self.model_dict = {'GANomaly': GANomaly,
+            #                    'DeepSAD': DeepSAD,
+            #                    'REPEN': REPEN,
+            #                    'DevNet': DevNet,
+            #                    'PReNet': PReNet,
+            #                    'FEAWAD': FEAWAD,
+            #                    'XGBOD': PYOD}
+
+            self.model_dict = {'PReNet': PReNet}
         # fully-supervised algorithms
         elif self.parallel == 'supervise':
             from baseline.Supervised import supervised
@@ -247,5 +254,5 @@ class RunPipeline():
                 df_time_inference.to_csv(os.path.join(os.getcwd(), 'result', 'Time(inference)_' + self.suffix + '.csv'), index=True)
 
 # run the above pipeline for reproducing the results in the paper
-pipeline = RunPipeline(suffix='SOTA', parallel='unsupervise')
+pipeline = RunPipeline(suffix='SOTA', parallel='semi-supervise')
 pipeline.run()

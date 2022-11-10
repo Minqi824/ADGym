@@ -2,7 +2,7 @@ import numpy as np
 from tqdm import tqdm
 import torch
 
-from myutils import Utils
+from utils import Utils
 
 utils = Utils()
 
