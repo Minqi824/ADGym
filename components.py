@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import random
 import torch
 from torch import nn
@@ -143,12 +144,13 @@ class Components():
             pass
 
         elif self.augmentation == 'GAN':
-            new_X, new_y = GANGenerator(gen_x_times=0.2).generate_data_pipe(self.data['X_train'],
-                                                                            self.data['y_train'],
-                                                                            self.data['X_train'])
+            # could raise error for higher version of sklearn (e.g., >=1.0)
+            new_X, new_y = GANGenerator(gen_x_times=0.2).generate_data_pipe(pd.DataFrame(self.data['X_train']),
+                                                                            pd.DataFrame(self.data['y_train'], columns=['target']),
+                                                                            pd.DataFrame(self.data['X_train']))
 
-            self.data['X_train'] = new_X
-            self.data['y_train'] = new_y
+            self.data['X_train'] = new_X.values
+            self.data['y_train'] = new_y.values
 
         else:
             raise NotImplementedError
