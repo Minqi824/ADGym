@@ -10,10 +10,13 @@ from data_generator import DataGenerator
 from components import Components
 
 class ADGym():
-    def __init__(self, la=0.10, suffix=None):
+    def __init__(self, la=0.10, suffix='', grid_mode='small', grid_size=100):
         self.la = la
-        self.suffix = suffix
+        self.suffix = suffix + '_' + str(la) + '_' + grid_mode + '_' + str(grid_size)
         self.seed_list = list(np.arange(3) + 1)
+
+        self.grid_mode = grid_mode
+        self.grid_size = grid_size
 
         if isinstance(la, int):
             self.mode = 'nla'
@@ -62,10 +65,10 @@ class ADGym():
 
         return dataset_list
 
-    def generate_gyms(self, size=100):
+    def generate_gyms(self):
         # generator combinations of different components
         com = Components()
-        print(com.gym())
+        print(com.gym(mode=self.grid_mode))
 
         gyms_comb = list(product(*list(com.gym().values())))
         keys = list(com.gym().keys())
@@ -98,8 +101,8 @@ class ADGym():
             gyms.append(gym)
 
         # random selection
-        if len(gyms) > size:
-            idx = np.random.choice(np.arange(len(gyms)), size, replace=False)
+        if len(gyms) > self.grid_size:
+            idx = np.random.choice(np.arange(len(gyms)), self.grid_size, replace=False)
             gyms = [gyms[_] for _ in idx]
         # remove duplicates
         gyms = list(unique_everseen(gyms))
@@ -172,10 +175,10 @@ class ADGym():
                 print(f'Dataset: {dataset}, Current combination: {gym}, training sucessfully.')
 
                 # output
-                df_results_AUCROC.to_csv('result_AUCROC_' + self.suffix + '.csv', index=True)
-                df_results_AUCPR.to_csv('result_AUCPR_' + self.suffix + '.csv', index=True)
-                df_results_runtime.to_csv('result_runtime_' + self.suffix + '.csv', index=True)
+                df_results_AUCROC.to_csv('result_AUCROC' + self.suffix + '.csv', index=True)
+                df_results_AUCPR.to_csv('result_AUCPR' + self.suffix + '.csv', index=True)
+                df_results_runtime.to_csv('result_runtime' + self.suffix + '.csv', index=True)
 
 
-adgym = ADGym(suffix='small')
+adgym = ADGym(la=0.1, grid_mode='small', grid_size=1000)
 adgym.run()

@@ -1,9 +1,10 @@
 import numpy as np
+import random
 import torch
 from torch import nn
 from networks import MLP, AE
 import rtdl
-import argparse
+from tabgan.sampler import GANGenerator
 
 from sklearn.preprocessing import MinMaxScaler, Normalizer
 from torch.utils.data import Subset, DataLoader, TensorDataset
@@ -70,7 +71,7 @@ class Components():
         if mode == 'large':
             gyms = {}
             ## data ##
-            gyms['augmentation'] = [None]
+            gyms['augmentation'] = [None, 'Oversampling', 'GAN']
             gyms['preprocess'] = ['minmax', 'normalize']
 
             ## network architecture ##
@@ -93,7 +94,7 @@ class Components():
         elif mode == 'small':
             gyms = {}
             ## data ##
-            gyms['augmentation'] = [None]
+            gyms['augmentation'] = [None, 'Oversampling', 'GAN']
             gyms['preprocess'] = ['minmax']
 
             ## network architecture ##
@@ -117,9 +118,42 @@ class Components():
 
         return gyms
 
-    def f_augmentation(self):
-        # TODO
-        pass
+    def f_augmentation(self): # theoretically, data augmentation are only for the training set
+        if self.augmentation is None:
+            pass
+
+        elif self.augmentation == 'Oversampling':
+            idx_n = np.where(self.data['y_train']==0)[0]
+            idx_a = np.where(self.data['y_train']==1)[0]
+
+            if len(idx_a) < len(idx_n):
+                # resampling
+                idx_a = np.random.choice(idx_a, len(idx_n))
+                idx = np.append(idx_n, idx_a)
+                random.shuffle(idx)
+
+                self.data['X_train'] = self.data['X_train'][idx]
+                self.data['y_train'] = self.data['y_train'][idx]
+            else:
+                pass
+
+        elif self.augmentation == 'Mixup':
+            # https://arxiv.org/pdf/1710.09412.pdf
+            # https://github.com/facebookresearch/mixup-cifar10/blob/main/train.py
+            pass
+
+        elif self.augmentation == 'GAN':
+            new_X, new_y = GANGenerator(gen_x_times=0.2).generate_data_pipe(self.data['X_train'],
+                                                                            self.data['y_train'],
+                                                                            self.data['X_train'])
+
+            self.data['X_train'] = new_X
+            self.data['y_train'] = new_y
+
+        else:
+            raise NotImplementedError
+
+        return self
 
     def f_preprocess(self):
         if self.preprocess == 'minmax':
