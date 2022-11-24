@@ -175,9 +175,11 @@ class ADGym():
                 print(f'Dataset: {dataset}, Current combination: {gym}, training sucessfully.')
 
                 # output
-                df_results_AUCROC.to_csv('result_AUCROC' + self.suffix + '.csv', index=True)
-                df_results_AUCPR.to_csv('result_AUCPR' + self.suffix + '.csv', index=True)
-                df_results_runtime.to_csv('result_runtime' + self.suffix + '.csv', index=True)
+                if not os.path.exists('result'):
+                    os.makedirs('result')
+                df_results_AUCROC.to_csv(os.path.join('result', 'result_AUCROC' + self.suffix + '.csv'), index=True)
+                df_results_AUCPR.to_csv(os.path.join('result', 'result_AUCPR' + self.suffix + '.csv'), index=True)
+                df_results_runtime.to_csv(os.path.join('result', 'result_runtime' + self.suffix + '.csv'), index=True)
 
 
 adgym = ADGym(la=0.1, grid_mode='small', grid_size=1000)
