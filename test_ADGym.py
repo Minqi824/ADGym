@@ -9,6 +9,8 @@ import time
 from data_generator import DataGenerator
 from components import Components
 
+# dataset + lr +seed
+
 class ADGym():
     def __init__(self, la=0.10, suffix='', grid_mode='small', grid_size=100):
         self.la = la

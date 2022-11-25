@@ -6,7 +6,10 @@ AD Gym could be discussed in several scenarios, including:
 - supervised
 
 ### Data Augmentation
-- Mixup
+- Oversampling
+- SMOTE
+- Mixup (to do)
+- GAN
 - ...
 
 ### Data Preprocessing
@@ -30,6 +33,8 @@ AD Gym could be discussed in several scenarios, including:
 - ...
 
 ### Loss Function
+- Cross Entropy
+- Focal loss
 - Minus loss
 - Inverse loss
 - Hinge loss
@@ -39,3 +44,10 @@ AD Gym could be discussed in several scenarios, including:
 
 ### Training Strategy
 - batch resampling
+- ...
+
+## Update Logs
+- 2022.11.17: run the experiments of current component combinations
+- 2022.11.23: add the GAN-based data augmentation method
+- 2022.11.25: add the oversampling and SMOTE data augmentation method
+- 2022.11.25: add the binary cross entropy loss and focal loss

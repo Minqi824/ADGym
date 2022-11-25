@@ -5,15 +5,15 @@ import torch
 from torch import nn
 from networks import MLP, AE
 import rtdl
+
+from imblearn.over_sampling import SMOTE
 from tabgan.sampler import GANGenerator
 
 from sklearn.preprocessing import MinMaxScaler, Normalizer
 from torch.utils.data import Subset, DataLoader, TensorDataset
 from utils import Utils
+import torch.nn.functional as F
 
-
-# TODO
-# data augmentation
 
 # we decouple the network components from the existing literature
 class Components():
@@ -72,7 +72,7 @@ class Components():
         if mode == 'large':
             gyms = {}
             ## data ##
-            gyms['augmentation'] = [None, 'Oversampling', 'GAN']
+            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'GAN']
             gyms['preprocess'] = ['minmax', 'normalize']
 
             ## network architecture ##
@@ -84,7 +84,7 @@ class Components():
 
             ## network fitting ##
             gyms['training_strategy'] = [None]
-            gyms['loss_name'] = ['minus', 'inverse', 'hinge', 'deviation']
+            gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation']
             gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
             gyms['batch_resample'] = [True, False]
             gyms['epochs'] = [20, 50, 100]
@@ -95,7 +95,7 @@ class Components():
         elif mode == 'small':
             gyms = {}
             ## data ##
-            gyms['augmentation'] = [None, 'Oversampling', 'GAN']
+            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'GAN']
             gyms['preprocess'] = ['minmax']
 
             ## network architecture ##
@@ -107,13 +107,14 @@ class Components():
 
             ## network fitting ##
             gyms['training_strategy'] = [None]
-            gyms['loss_name'] = ['minus', 'inverse', 'hinge', 'deviation']
+            gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation']
             gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
             gyms['batch_resample'] = [True, False]
             gyms['epochs'] = [50]
             gyms['batch_size'] = [256]
             gyms['lr'] = [1e-2, 1e-3]
             gyms['weight_decay'] = [1e-2]
+
         else:
             raise NotImplementedError
 
@@ -138,16 +139,26 @@ class Components():
             else:
                 pass
 
-        elif self.augmentation == 'Mixup':
+        elif self.augmentation == 'SMOTE':
+            new_X, new_y = SMOTE(random_state=self.seed).fit_resample(self.data['X_train'],
+                                                                      self.data['y_train'])
+
+            self.data['X_train'] = new_X
+            self.data['y_train'] = new_y
+
+        elif self.augmentation == 'Mixup': # mixup method need to verify the loss functions
             # https://arxiv.org/pdf/1710.09412.pdf
             # https://github.com/facebookresearch/mixup-cifar10/blob/main/train.py
             pass
 
         elif self.augmentation == 'GAN':
             # could raise error for higher version of sklearn (e.g., >=1.0)
-            new_X, new_y = GANGenerator(gen_x_times=0.2).generate_data_pipe(pd.DataFrame(self.data['X_train']),
-                                                                            pd.DataFrame(self.data['y_train'], columns=['target']),
-                                                                            pd.DataFrame(self.data['X_train']))
+            # we modify the GAN's params for accelerating, where the original gan_params = {"batch_size": 500, "patience": 25, "epochs" : 500,}
+            new_X, new_y = GANGenerator(gen_x_times=0.2, gan_params={"batch_size": 100,
+                                                                     "patience": 10,
+                                                                     "epochs" : 100,}).generate_data_pipe(pd.DataFrame(self.data['X_train']),
+                                                                                                          pd.DataFrame(self.data['y_train'], columns=['target']),
+                                                                                                          pd.DataFrame(self.data['X_train']))
 
             self.data['X_train'] = new_X.values
             self.data['y_train'] = new_y.values
@@ -241,7 +252,7 @@ class Components():
         # TODO
         pass
 
-    def f_loss(self, s_n, s_a):
+    def f_loss(self, s, y):
         '''
         We including several loss functions in the existing AD algorithms, including:
         - Minus loss
@@ -252,7 +263,17 @@ class Components():
         '''
         ranking_loss = torch.nn.MarginRankingLoss(margin=5.0) # for hinge loss
 
-        if self.loss_name == 'minus':
+        s = s.squeeze()
+        s_n = s[y == 0]
+        s_a = s[y == 1]
+
+        if self.loss_name == 'bce':
+            loss = F.binary_cross_entropy_with_logits(input=s, target=y, reduction="mean")
+
+        elif self.loss_name == 'focal':
+            loss = self.utils.sigmoid_focal_loss(inputs=s, targets=y, reduction="mean")
+
+        elif self.loss_name == 'minus':
             loss = torch.mean(s_n + torch.max(torch.zeros_like(s_a), 5.0 - s_a))
 
         elif self.loss_name == 'inverse':
@@ -319,10 +340,7 @@ class Components():
                 else:
                     s = self.model(X)
 
-                s = s.squeeze()
-                s_n = s[y==0]
-                s_a = s[y==1]
-                loss = self.f_loss(s_n, s_a)
+                loss = self.f_loss(s, y)
 
                 # loss backward
                 loss.backward()
