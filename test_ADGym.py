@@ -15,7 +15,8 @@ class ADGym():
     def __init__(self, la=0.10, suffix='', grid_mode='small', grid_size=100):
         self.la = la
         self.suffix = suffix + '_' + str(la) + '_' + grid_mode + '_' + str(grid_size)
-        self.seed_list = list(np.arange(3) + 1)
+        # self.seed_list = list(np.arange(3) + 1)
+        self.seed_list = [42]
 
         self.grid_mode = grid_mode
         self.grid_size = grid_size
@@ -124,14 +125,25 @@ class ADGym():
         df_results_AUCPR = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
         df_results_runtime = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
 
-        for dataset in dataset_list:
-            # generate data
-            data_generator = DataGenerator(dataset=dataset)
-            data = data_generator.generator(la=self.la)
+        # create save path
+        if not os.path.exists('datasets/meta-features'):
+            os.makedirs('datasets/meta-features')
 
+        if not os.path.exists('result'):
+            os.makedirs('result')
+
+        for dataset in dataset_list:
             for gym in tqdm(gyms):
                 aucroc_list, aucpr_list, time_list = [], [], []
                 for seed in self.seed_list:
+                    # generate data
+                    data_generator = DataGenerator(dataset=dataset, seed=seed)
+                    data = data_generator.generator(la=self.la, meta=True)
+
+                    # save meta-features
+                    np.savez_compressed(os.path.join('datasets/meta-features', 'meta-features-' + dataset +
+                                                     '-' + str(self.la) + '-' + str(seed) + '.npz'), data=data['meta_features'])
+
                     com = Components(seed=seed,
                                      data=data,
                                      augmentation=gym['augmentation'],
@@ -177,12 +189,10 @@ class ADGym():
                 print(f'Dataset: {dataset}, Current combination: {gym}, training sucessfully.')
 
                 # output
-                if not os.path.exists('result'):
-                    os.makedirs('result')
                 df_results_AUCROC.to_csv(os.path.join('result', 'result_AUCROC' + self.suffix + '.csv'), index=True)
                 df_results_AUCPR.to_csv(os.path.join('result', 'result_AUCPR' + self.suffix + '.csv'), index=True)
                 df_results_runtime.to_csv(os.path.join('result', 'result_runtime' + self.suffix + '.csv'), index=True)
 
 
-adgym = ADGym(la=0.1, grid_mode='small', grid_size=1000)
+adgym = ADGym(la=0.1, grid_mode='small', grid_size=10)
 adgym.run()

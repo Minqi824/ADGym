@@ -2,6 +2,7 @@ import numpy as np
 import os
 from math import ceil
 from sklearn.model_selection import train_test_split
+from metaod.models.gen_meta_features import generate_meta_features
 
 from utils import Utils
 
@@ -38,7 +39,8 @@ class DataGenerator():
                   X=None,
                   y=None,
                   la=None,
-                  at_least_one_labeled=False):
+                  at_least_one_labeled=False,
+                  meta=False):
         '''
         la: labeled anomalies, can be either the ratio of labeled anomalies or the number of labeled anomalies
         at_least_one_labeled: whether to guarantee at least one labeled anomalies in the training set
@@ -102,4 +104,10 @@ class DataGenerator():
         y_train[idx_unlabeled] = 0
         y_train[idx_labeled_anomaly] = 1
 
-        return {'X_train':X_train, 'y_train':y_train, 'X_test':X_test, 'y_test':y_test}
+        # generate meta-feature if necessary
+        if meta:
+            meta_features, _ = generate_meta_features(X_train)
+        else:
+            meta_features = None
+
+        return {'X_train': X_train, 'y_train': y_train, 'X_test': X_test, 'y_test': y_test, 'meta_features': meta_features}

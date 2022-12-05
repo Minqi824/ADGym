@@ -95,7 +95,8 @@ class Components():
         elif mode == 'small':
             gyms = {}
             ## data ##
-            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'GAN']
+            # gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'GAN']
+            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE']
             gyms['preprocess'] = ['minmax']
 
             ## network architecture ##
