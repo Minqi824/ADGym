@@ -194,5 +194,5 @@ class ADGym():
                 df_results_runtime.to_csv(os.path.join('result', 'result_runtime' + self.suffix + '.csv'), index=True)
 
 
-adgym = ADGym(la=0.1, grid_mode='small', grid_size=10)
+adgym = ADGym(la=0.2, grid_mode='small', grid_size=100)
 adgym.run()
