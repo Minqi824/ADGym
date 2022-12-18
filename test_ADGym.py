@@ -15,8 +15,7 @@ class ADGym():
     def __init__(self, la=0.10, suffix='', grid_mode='small', grid_size=100):
         self.la = la
         self.suffix = suffix + '_' + str(la) + '_' + grid_mode + '_' + str(grid_size)
-        # self.seed_list = list(np.arange(3) + 1)
-        self.seed_list = [42]
+        self.seed_list = list(np.arange(1) + 1)
 
         self.grid_mode = grid_mode
         self.grid_size = grid_size
@@ -48,7 +47,7 @@ class ADGym():
                     add = False
 
                 else:
-                    if self.mode == 'nla' and sum(data['y_train']) >= self.nla_list[-1]:
+                    if self.mode == 'nla' and sum(data['y_train']) >= self.la:
                         pass
 
                     elif self.mode == 'rla' and sum(data['y_train']) > 0:
@@ -173,8 +172,8 @@ class ADGym():
                         aucroc_list.append(metrics['aucroc'])
                         aucpr_list.append(metrics['aucpr'])
                         time_list.append(end_time - start_time)
-                    except:
-                        print(f'Dataset: {dataset}, Current combination: {gym}, training failure.')
+                    except Exception as error:
+                        print(f'Dataset: {dataset}, Current combination: {gym}, training failure. Error: {error}')
                         aucroc_list.append(None)
                         aucpr_list.append(None)
                         time_list.append(None)
@@ -194,5 +193,5 @@ class ADGym():
                 df_results_runtime.to_csv(os.path.join('result', 'result_runtime' + self.suffix + '.csv'), index=True)
 
 
-adgym = ADGym(la=0.2, grid_mode='small', grid_size=100)
+adgym = ADGym(la=5, grid_mode='small', grid_size=100)
 adgym.run()
