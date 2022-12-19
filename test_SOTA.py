@@ -49,7 +49,7 @@ class RunPipeline():
         # # ratio of labeled anomalies
         # self.rla_list = [0.00, 0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 1.00]
         # number of labeled anomalies
-        self.nla_list = [5, 10, 25, 50, 100]
+        self.nla_list = [5, 10, 25, 50]
 
         # seed list
         self.seed_list = list(np.arange(1) + 1)

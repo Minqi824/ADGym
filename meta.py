@@ -11,40 +11,6 @@
 from torch import nn
 import torch
 
-
-class meta_feature_extractor(nn.Module):
-    def __init__(self):
-        super(meta_feature_extractor, self).__init__()
-
-        self.f = nn.Sequential(
-            nn.Linear(2, 32),
-            nn.ReLU()
-        )
-        self.g = nn.Sequential(
-            nn.Linear(32, 16),
-            nn.ReLU(),
-            nn.Linear(16, 8),
-            nn.ReLU()
-        )
-        self.h = nn.Sequential(
-            nn.Linear(8, 16),
-            nn.ReLU(),
-            nn.Linear(16, 32),
-            nn.ReLU(),
-            nn.Linear(32, 200)
-        )
-
-    def forward(self, X, y):
-        assert len(X.size()) == 2 and len(y.size()) == 1
-        X = X.unsqueeze(2)
-        y = y.repeat(X.size(1), 1).T.unsqueeze(2)
-
-        f_feature = torch.mean(self.f(torch.cat((X, y), dim=2)), dim=0)
-        g_feature = torch.mean(self.g(f_feature), dim=0)
-        h_feature = self.h(g_feature)
-
-        return h_feature
-
 class meta_predictor(nn.Module):
     def __init__(self, n_col, n_per_col, embedding_dim=3):
         super(meta_predictor, self).__init__()

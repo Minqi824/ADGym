@@ -40,6 +40,7 @@ class PReNet():
 
         self.utils.set_seed(self.seed)
         self.model = prenet(input_size=input_size, act_fun=self.act_fun)
+        self.model = self.model.to(self.device)
         optimizer = torch.optim.RMSprop(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)  # optimizer
 
         # training
@@ -70,11 +71,11 @@ class PReNet():
             X_train_u_tensor = self.X_train_tensor[index_u]
 
             with torch.no_grad():
-                score_a_x = self.model(X_train_a_tensor, torch.cat(num * [X[i].view(1, -1)]))
-                score_x_u = self.model(torch.cat(num * [X[i].view(1, -1)]), X_train_u_tensor)
+                score_a_x = self.model(X_train_a_tensor.to(self.device), torch.cat(num * [X[i].view(1, -1)]))
+                score_x_u = self.model(torch.cat(num * [X[i].view(1, -1)]), X_train_u_tensor.to(self.device))
 
             score_sub = torch.mean(score_a_x + score_x_u)
-            score_sub = score_sub.numpy()[()]
+            score_sub = score_sub.cpu().item()
 
             # entire score
             score.append(score_sub)

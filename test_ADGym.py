@@ -5,6 +5,9 @@ from itertools import product
 from tqdm import tqdm
 from iteration_utilities import unique_everseen
 import time
+import gc
+from keras import backend as K
+
 
 from data_generator import DataGenerator
 from components import Components
@@ -180,6 +183,10 @@ class ADGym():
                         pass
                         continue
 
+                    K.clear_session()
+                    del com
+                    gc.collect()
+
                 # save results
                 if all([_ is not None for _ in aucroc_list]) and all([_ is not None for _ in aucpr_list]) and all([_ is not None for _ in time_list]):
                     df_results_AUCROC.loc[str(gym), dataset] = np.mean(aucroc_list)
@@ -193,5 +200,5 @@ class ADGym():
                 df_results_runtime.to_csv(os.path.join('result', 'result_runtime' + self.suffix + '.csv'), index=True)
 
 
-adgym = ADGym(la=5, grid_mode='small', grid_size=100)
+adgym = ADGym(la=5, grid_mode='small', grid_size=500)
 adgym.run()
