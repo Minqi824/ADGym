@@ -75,8 +75,8 @@ class ADGym():
         com = Components()
         print(com.gym(mode=self.grid_mode))
 
-        gyms_comb = list(product(*list(com.gym().values())))
-        keys = list(com.gym().keys())
+        gyms_comb = list(product(*list(com.gym(mode=self.grid_mode).values())))
+        keys = list(com.gym(mode=self.grid_mode).keys())
         gyms = []
 
         for _ in tqdm(gyms_comb):
@@ -135,16 +135,20 @@ class ADGym():
             os.makedirs('result')
 
         for dataset in dataset_list:
-            for gym in tqdm(gyms):
+            for j, gym in tqdm(enumerate(gyms)):
                 aucroc_list, aucpr_list, time_list = [], [], []
                 for seed in self.seed_list:
-                    # generate data
+                    # data generator instantiation
                     data_generator = DataGenerator(dataset=dataset, seed=seed)
-                    data = data_generator.generator(la=self.la, meta=True)
 
-                    # save meta-features
-                    np.savez_compressed(os.path.join('datasets/meta-features', 'meta-features-' + dataset +
-                                                     '-' + str(self.la) + '-' + str(seed) + '.npz'), data=data['meta_features'])
+                    # generate data and save meta-features
+                    if j == 0:
+                        data = data_generator.generator(la=self.la, meta=True)
+                        np.savez_compressed(os.path.join('datasets/meta-features', 'meta-features-' + dataset +
+                                                         '-' + str(self.la) + '-' + str(seed) + '.npz'),
+                                            data=data['meta_features'])
+                    else:
+                        data = data_generator.generator(la=self.la, meta=False)
 
                     com = Components(seed=seed,
                                      data=data,
@@ -175,6 +179,7 @@ class ADGym():
                         aucroc_list.append(metrics['aucroc'])
                         aucpr_list.append(metrics['aucpr'])
                         time_list.append(end_time - start_time)
+
                     except Exception as error:
                         print(f'Dataset: {dataset}, Current combination: {gym}, training failure. Error: {error}')
                         aucroc_list.append(None)
@@ -200,5 +205,5 @@ class ADGym():
                 df_results_runtime.to_csv(os.path.join('result', 'result_runtime' + self.suffix + '.csv'), index=True)
 
 
-adgym = ADGym(la=5, grid_mode='small', grid_size=500)
+adgym = ADGym(la=5, grid_mode='large', grid_size=10000)
 adgym.run()

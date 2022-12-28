@@ -72,7 +72,7 @@ class Components():
         if mode == 'large':
             gyms = {}
             ## data ##
-            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'GAN']
+            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE'] # GAN
             gyms['preprocess'] = ['minmax', 'normalize']
 
             ## network architecture ##
