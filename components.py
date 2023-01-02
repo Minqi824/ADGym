@@ -27,6 +27,7 @@ class Components():
                  hidden_size_list:list=None,
                  act_fun:str=None,
                  dropout:float=None,
+                 network_initialization:str=None,
                  training_strategy=None,
                  loss_name:str=None,
                  optimizer_name:str=None,
@@ -57,6 +58,9 @@ class Components():
         self.act_fun = act_fun
         self.dropout = dropout
 
+        ## network initialization ##
+        self.network_initialization = network_initialization
+
         ## network fitting ##
         self.training_strategy = training_strategy
         self.loss_name = loss_name
@@ -72,7 +76,7 @@ class Components():
         if mode == 'large':
             gyms = {}
             ## data ##
-            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE'] # GAN
+            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'GAN']
             gyms['preprocess'] = ['minmax', 'normalize']
 
             ## network architecture ##
@@ -81,6 +85,10 @@ class Components():
             gyms['hidden_size_list'] = [[20], [100, 20], [100, 50, 20]]
             gyms['act_fun'] = ['Tanh', 'ReLU', 'LeakyReLU']
             gyms['dropout'] = [0.0, 0.1, 0.3]
+
+            ## network initialization ##
+            gyms['network_initialization'] = ['default', 'xavier_uniform', 'xavier_normal',
+                                              'kaiming_uniform', 'kaiming_normal']
 
             ## network fitting ##
             gyms['training_strategy'] = [None]
@@ -95,8 +103,7 @@ class Components():
         elif mode == 'small':
             gyms = {}
             ## data ##
-            # gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'GAN']
-            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE']
+            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'GAN']
             gyms['preprocess'] = ['minmax']
 
             ## network architecture ##
@@ -106,12 +113,16 @@ class Components():
             gyms['act_fun'] = ['Tanh', 'ReLU', 'LeakyReLU']
             gyms['dropout'] = [0.0]
 
+            ## network initialization ##
+            gyms['network_initialization'] = ['default', 'xavier_uniform', 'xavier_normal',
+                                              'kaiming_uniform', 'kaiming_normal']
+
             ## network fitting ##
             gyms['training_strategy'] = [None]
             gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation']
             gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
             gyms['batch_resample'] = [True, False]
-            gyms['epochs'] = [50]
+            gyms['epochs'] = [20, 50, 100]
             gyms['batch_size'] = [256]
             gyms['lr'] = [1e-2, 1e-3]
             gyms['weight_decay'] = [1e-2]
@@ -195,6 +206,21 @@ class Components():
         self.test_tensor = torch.from_numpy(self.data['X_test']).float()
 
         return self
+
+    def init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            if self.network_initialization == 'default':
+                pass
+            elif self.network_initialization == 'xavier_uniform':
+                nn.init.xavier_uniform_(m.weight)
+            elif self.network_initialization == 'xavier_normal':
+                nn.init.xavier_normal_(m.weight)
+            elif self.network_initialization == 'kaiming_uniform':
+                nn.init.kaiming_uniform_(m.weight)
+            elif self.network_initialization == 'kaiming_normal':
+                nn.init.kaiming_normal_(m.weight)
+            else:
+                raise NotImplementedError
 
     def f_network(self):
         '''
@@ -319,7 +345,8 @@ class Components():
         self.f_preprocess()
 
         # network initialization
-        self.f_network()
+        self.f_network() # build network
+        self.model.apply(self.init_weights) # weight initialization
 
         # optimizer
         self.f_optimizer()

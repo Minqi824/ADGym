@@ -12,14 +12,16 @@ class DataGenerator():
                  dataset:str=None,
                  test_size:float=0.3,
                  generate_duplicates=False,
-                 n_samples_threshold=1000,
+                 n_samples_lower_bound=None,
+                 n_samples_upper_bound=None,
                  verbose=False):
         '''
         :param seed: seed for reproducible results
         :param dataset: specific the dataset name
         :param test_size: testing set size
         :param generate_duplicates: whether to generate duplicated samples when sample size is too small
-        :param n_samples_threshold: threshold for generating the above duplicates, if generate_duplicates is False, then datasets with sample size smaller than n_samples_threshold will be dropped
+        :param n_samples_lower_bound: threshold for generating the above duplicates, if generate_duplicates is False, then datasets with sample size smaller than n_samples_lower_bound will be dropped
+        :param n_samples_upper_bound: threshold for downsampling input samples, considering the computational cost
         '''
 
         self.seed = seed
@@ -27,7 +29,8 @@ class DataGenerator():
         self.test_size = test_size
 
         self.generate_duplicates = generate_duplicates
-        self.n_samples_threshold = n_samples_threshold
+        self.n_samples_lower_bound = n_samples_lower_bound
+        self.n_samples_upper_bound = n_samples_upper_bound
 
         # dataset list
         self.dataset_list = [os.path.splitext(_)[0] for _ in os.listdir('datasets')
@@ -60,21 +63,21 @@ class DataGenerator():
             X = data['X']
             y = data['y']
 
-        # if the dataset is too small, generating duplicate smaples up to n_samples_threshold
-        if len(y) < self.n_samples_threshold and self.generate_duplicates:
+        # if the dataset is too small, generating duplicate smaples up to n_samples_lower_bound
+        if len(y) < self.n_samples_lower_bound and self.generate_duplicates:
             if self.verbose:
                 print(f'generating duplicate samples for dataset {self.dataset}...')
             self.utils.set_seed(self.seed)
-            idx_duplicate = np.random.choice(np.arange(len(y)), self.n_samples_threshold, replace=True)
+            idx_duplicate = np.random.choice(np.arange(len(y)), self.n_samples_lower_bound, replace=True)
             X = X[idx_duplicate]
             y = y[idx_duplicate]
 
         # if the dataset is too large, subsampling for considering the computational cost
-        if len(y) > 10000:
+        if len(y) > self.n_samples_upper_bound:
             if self.verbose:
                 print(f'subsampling for dataset {self.dataset}...')
             self.utils.set_seed(self.seed)
-            idx_sample = np.random.choice(np.arange(len(y)), 10000, replace=False)
+            idx_sample = np.random.choice(np.arange(len(y)), self.n_samples_upper_bound, replace=False)
             X = X[idx_sample]
             y = y[idx_sample]
 

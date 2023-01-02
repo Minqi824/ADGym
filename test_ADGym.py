@@ -31,9 +31,11 @@ class ADGym():
             raise NotImplementedError
 
         self.generate_duplicates = False
-        self.n_samples_threshold = 1000
+        self.n_samples_lower_bound = 1000
+        self.n_samples_upper_bound = 3000
         self.data_generator = DataGenerator(generate_duplicates=self.generate_duplicates,
-                                            n_samples_threshold=self.n_samples_threshold)
+                                            n_samples_lower_bound=self.n_samples_lower_bound,
+                                            n_samples_upper_bound=self.n_samples_upper_bound)
 
     def dataset_filter(self, dataset_list_org):
         dataset_list = []
@@ -41,12 +43,13 @@ class ADGym():
         for dataset in dataset_list_org:
             add = True
             for seed in self.seed_list:
-                self.data_generator.seed = seed
                 self.data_generator.dataset = dataset
+                self.data_generator.seed = seed
+
                 data = self.data_generator.generator(la=1.00, at_least_one_labeled=True)
 
                 if not self.generate_duplicates and len(data['y_train']) + len(
-                        data['y_test']) < self.n_samples_threshold:
+                        data['y_test']) < self.n_samples_lower_bound:
                     add = False
 
                 else:
@@ -139,16 +142,17 @@ class ADGym():
                 aucroc_list, aucpr_list, time_list = [], [], []
                 for seed in self.seed_list:
                     # data generator instantiation
-                    data_generator = DataGenerator(dataset=dataset, seed=seed)
+                    self.data_generator.dataset = dataset
+                    self.data_generator.seed = seed
 
                     # generate data and save meta-features
                     if j == 0:
-                        data = data_generator.generator(la=self.la, meta=True)
+                        data = self.data_generator.generator(la=self.la, meta=True)
                         np.savez_compressed(os.path.join('datasets/meta-features', 'meta-features-' + dataset +
                                                          '-' + str(self.la) + '-' + str(seed) + '.npz'),
                                             data=data['meta_features'])
                     else:
-                        data = data_generator.generator(la=self.la, meta=False)
+                        data = self.data_generator.generator(la=self.la, meta=False)
 
                     com = Components(seed=seed,
                                      data=data,
@@ -159,6 +163,7 @@ class ADGym():
                                      hidden_size_list=gym['hidden_size_list'],
                                      act_fun=gym['act_fun'],
                                      dropout=gym['dropout'],
+                                     network_initialization=gym['network_initialization'],
                                      training_strategy=gym['training_strategy'],
                                      loss_name=gym['loss_name'],
                                      optimizer_name=gym['optimizer_name'],
@@ -205,5 +210,5 @@ class ADGym():
                 df_results_runtime.to_csv(os.path.join('result', 'result_runtime' + self.suffix + '.csv'), index=True)
 
 
-adgym = ADGym(la=5, grid_mode='large', grid_size=10000)
+adgym = ADGym(la=5, grid_mode='small', grid_size=10000)
 adgym.run()

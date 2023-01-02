@@ -53,16 +53,20 @@ def components_process(result):
 
     return components_df_index
 
-
-def dataloader(meta_data, start_idx, end_idx, downsample=True):
+def dataloader(meta_data, start_idx=None, end_idx=None, downsample=True):
     X_list, y_list, la_list, components, targets = [], [], [], [], []
-    for _ in meta_data[start_idx: end_idx]:
+    # for _ in meta_data[start_idx: end_idx]:
+    for _ in meta_data:
         X_train = _['X_train']
         y_train = _['y_train']
         if downsample:
-            idx = np.random.choice(np.arange(len(y_train)), 1000, replace=False)
-            X_train = X_train[idx]
-            y_train = y_train[idx]
+            if X_train.shape[0] > 100:
+                idx = np.random.choice(np.arange(X_train.shape[0]), 100, replace=False)
+                X_train = X_train[idx, :]
+                y_train = y_train[idx]
+            if X_train.shape[1] > 100:
+                idx = np.random.choice(np.arange(X_train.shape[1]), 100, replace=False)
+                X_train = X_train[:, idx]
 
         X_list.append(torch.from_numpy(X_train).float())
         y_list.append(torch.from_numpy(y_train).float())
@@ -75,7 +79,6 @@ def dataloader(meta_data, start_idx, end_idx, downsample=True):
     targets = torch.tensor(targets).float()
 
     return X_list, y_list, la_list, components, targets
-
 
 class meta_predictor(nn.Module):
     def __init__(self, n_col, n_per_col, embedding_dim=3, meta_embedding_dim=32):
@@ -106,18 +109,26 @@ class meta_predictor(nn.Module):
             nn.Sigmoid())
 
     def forward(self, X_list, y_list, nla=None, components=None):
-        # meta feature
-        meta_features = []
-        for X, y in zip(X_list, y_list):
-            assert len(X.size()) == 2 and len(y.size()) == 1
-            X = X.unsqueeze(2)
-            y = y.repeat(X.size(1), 1).T.unsqueeze(2)
+        # meta-feature
+        X = torch.stack(X_list).unsqueeze(-1)
+        y = torch.stack([y.repeat(X.size(2), 1).T.unsqueeze(-1) for y in y_list])
 
-            f_feature = torch.mean(self.f(torch.cat((X, y), dim=2)), dim=0)
-            g_feature = torch.mean(self.g(f_feature), dim=0)
-            meta_features.append(self.h(g_feature))
-        # stack the meta-features of multiple datasets
-        meta_features = torch.stack(meta_features)
+        f_feature = torch.mean(self.f(torch.cat((X, y), dim=-1)), dim=1)
+        g_feature = torch.mean(self.g(f_feature), dim=1)
+        meta_features = self.h(g_feature)
+
+        # # meta feature
+        # meta_features = []
+        # for X, y in zip(X_list, y_list):
+        #     assert len(X.size()) == 2 and len(y.size()) == 1
+        #     X = X.unsqueeze(2)
+        #     y = y.repeat(X.size(1), 1).T.unsqueeze(2)
+        #
+        #     f_feature = torch.mean(self.f(torch.cat((X, y), dim=2)), dim=0)
+        #     g_feature = torch.mean(self.g(f_feature), dim=0)
+        #     meta_features.append(self.h(g_feature))
+        # # stack the meta-features of multiple datasets
+        # meta_features = torch.stack(meta_features)
 
         # network components' embedding
         assert components.size(1) == len(self.embeddings)
@@ -135,13 +146,16 @@ class meta_predictor(nn.Module):
 
 def fit(meta_data, model, optimizer, batch_size=64):
     criterion = nn.MSELoss()
-    epochs = 20
+    epochs = 1
 
     loss_epoch = []
     for i in tqdm(range(epochs)):
         loss_batch = []
-        for j in tqdm(range(len(meta_data) // batch_size)):
-            X_list, y_list, la_list, components, targets = dataloader(meta_data, batch_size * j, batch_size * (j + 1))
+        # for j in range(len(meta_data) // batch_size):
+        #     X_list, y_list, la_list, components, targets = dataloader(meta_data, batch_size * j, batch_size * (j + 1))
+
+        for meta_data_batch in tqdm(meta_data):
+            X_list, y_list, la_list, components, targets = dataloader(meta_data_batch)
 
             # clear grad
             model.zero_grad()
@@ -185,9 +199,10 @@ meta_data = []
 for la in [5, 10, 25, 50]:
     result = pd.read_csv('result/result_' + metric + '_' + str(la) + '_small_500.csv')
     result.rename(columns={'Unnamed: 0':'Components'}, inplace=True)
-
+    # components
     components_df_index = components_process(result)
 
+    # meta data batch
     for i in tqdm(range(1, result.shape[1])):
         current_dataset = result.columns[i]
         if current_dataset == test_dataset:
@@ -198,14 +213,16 @@ for la in [5, 10, 25, 50]:
         data_generator.seed = 1
         data = data_generator.generator(la=la)
 
+        meta_data_batch = []
         for j in range(result.shape[0]):
             if not pd.isnull(result.iloc[j, i]):  # set nan to 0?
-                meta_data.append({'X_train': data['X_train'],
-                                  'y_train': data['y_train'],
-                                  'dataset_idx': i,
-                                  'la': la,
-                                  'components': components_df_index.iloc[j, :].values,
-                                  'performance': result.iloc[j, i]})
+                meta_data_batch.append({'X_train': data['X_train'],
+                                        'y_train': data['y_train'],
+                                        'dataset_idx': i,
+                                        'la': la,
+                                        'components': components_df_index.iloc[j, :].values,
+                                        'performance': result.iloc[j, i]})
+        meta_data.append(meta_data_batch)
 
 # initialization
 utils.set_seed(42)
@@ -216,3 +233,13 @@ optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
 # fitting
 fit(meta_data, model, optimizer)
+
+# testing
+data_generator = DataGenerator(dataset=test_dataset, seed=1)
+test_data = data_generator.generator(la=test_la)
+
+with torch.no_grad():
+    _, _, pred = model([torch.from_numpy(test_data['X_train']).float() for i in range(components_df_index.shape[0])],
+                       [torch.from_numpy(test_data['y_train']).float() for i in range(components_df_index.shape[0])],
+                        torch.tensor([test_la for i in range(components_df_index.shape[0])]).unsqueeze(1),
+                        torch.from_numpy(components_df_index.values).float())
