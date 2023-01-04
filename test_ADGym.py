@@ -96,6 +96,10 @@ class ADGym():
             if gym['loss_name'] != 'inverse' and not gym['batch_resample']:
                 continue
 
+            # To Do: ordinal loss for other network architectures
+            if gym['loss_name'] == 'ordinal' and gym['network_architecture'] != 'MLP':
+                continue
+
             # delete ResNet & FTT ReLU: activation layers
             if gym['network_architecture'] in ['ResNet', 'FTT']:
                 if gym['act_fun'] != 'ReLU':

@@ -119,8 +119,7 @@ class Components():
 
             ## network fitting ##
             gyms['training_strategy'] = [None]
-            # gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation', 'ordinal']
-            gyms['loss_name'] = ['ordinal']
+            gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation', 'ordinal']
             gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
             gyms['batch_resample'] = [True, False]
             gyms['epochs'] = [20, 50, 100]
