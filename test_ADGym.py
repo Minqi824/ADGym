@@ -15,13 +15,14 @@ from components import Components
 # dataset + lr +seed
 
 class ADGym():
-    def __init__(self, la=0.10, suffix='', grid_mode='small', grid_size=100):
+    def __init__(self, la=0.10, suffix='', grid_mode='small', grid_size=100, gan_specific=False):
         self.la = la
-        self.suffix = suffix + '_' + str(la) + '_' + grid_mode + '_' + str(grid_size)
+        self.suffix = suffix + '_' + str(la) + '_' + grid_mode + '_' + str(grid_size) + '_GAN(' + str(gan_specific) + ')'
         self.seed_list = list(np.arange(1) + 1)
 
         self.grid_mode = grid_mode
         self.grid_size = grid_size
+        self.gan_specific=gan_specific
 
         if isinstance(la, int):
             self.mode = 'nla'
@@ -75,7 +76,7 @@ class ADGym():
 
     def generate_gyms(self):
         # generator combinations of different components
-        com = Components()
+        com = Components(gan_specific=self.gan_specific)
         print(com.gym(mode=self.grid_mode))
 
         gyms_comb = list(product(*list(com.gym(mode=self.grid_mode).values())))
@@ -214,5 +215,5 @@ class ADGym():
                 df_results_runtime.to_csv(os.path.join('result', 'result_runtime' + self.suffix + '.csv'), index=True)
 
 
-adgym = ADGym(la=5, grid_mode='small', grid_size=10000)
+adgym = ADGym(la=5, grid_mode='small', grid_size=10000, gan_specific=True)
 adgym.run()

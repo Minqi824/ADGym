@@ -21,6 +21,7 @@ class Components():
                  seed:int=None,
                  data=None,
                  augmentation:str=None,
+                 gan_specific:bool=False,
                  preprocess:str=None,
                  network_architecture:str=None,
                  layers:int=None,
@@ -49,6 +50,7 @@ class Components():
 
         ## data ##
         self.augmentation = augmentation
+        self.gan_specific = gan_specific
         self.preprocess = preprocess
 
         ## network architecture ##
@@ -76,7 +78,7 @@ class Components():
         if mode == 'large':
             gyms = {}
             ## data ##
-            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'Mixup', 'GAN']
+            gyms['augmentation'] = ['GAN'] if self.gan_specific else [None, 'Oversampling', 'SMOTE', 'Mixup']
             gyms['preprocess'] = ['minmax', 'normalize']
 
             ## network architecture ##
@@ -92,7 +94,7 @@ class Components():
 
             ## network fitting ##
             gyms['training_strategy'] = [None]
-            gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation', 'ordinal']
+            gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation'] # ordinal
             gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
             gyms['batch_resample'] = [True, False]
             gyms['epochs'] = [20, 50, 100]
@@ -103,7 +105,7 @@ class Components():
         elif mode == 'small':
             gyms = {}
             ## data ##
-            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'Mixup', 'GAN']
+            gyms['augmentation'] = ['GAN'] if self.gan_specific else [None, 'Oversampling', 'SMOTE', 'Mixup']
             gyms['preprocess'] = ['minmax']
 
             ## network architecture ##
@@ -119,7 +121,7 @@ class Components():
 
             ## network fitting ##
             gyms['training_strategy'] = [None]
-            gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation', 'ordinal']
+            gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation'] # ordinal
             gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
             gyms['batch_resample'] = [True, False]
             gyms['epochs'] = [20, 50, 100]
