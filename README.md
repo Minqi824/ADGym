@@ -1,6 +1,6 @@
 # AD Gym
 
-AD Gym could be discussed in several scenarios, including:
+AD Gym could be discussed in several scenarios (to do), including:
 - unsupervised
 - semi-supervised
 - supervised
@@ -8,7 +8,7 @@ AD Gym could be discussed in several scenarios, including:
 ### Data Augmentation
 - Oversampling
 - SMOTE
-- Mixup (to do)
+- Mixup
 - GAN
 - ...
 
@@ -23,6 +23,13 @@ AD Gym could be discussed in several scenarios, including:
 - ResNet
 - Transformer
 - ...
+
+### Network Initialization
+- default (pytorch default)
+- Xavier (uniform)
+- Xavier (normal)
+- Kaiming (uniform)
+- Kaiming (normal)
 
 ### Network Hyperparameter
 - neurons
@@ -51,3 +58,6 @@ AD Gym could be discussed in several scenarios, including:
 - 2022.11.23: add the GAN-based data augmentation method
 - 2022.11.25: add the oversampling and SMOTE data augmentation method
 - 2022.11.25: add the binary cross entropy loss and focal loss
+- 2023.01.04: add the Mixup data augmentation method
+- 2023.01.04: add different network initialization methods
+- 2023.01.04: add the ordinal loss in PReNet model

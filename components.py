@@ -3,7 +3,7 @@ import pandas as pd
 import random
 import torch
 from torch import nn
-from networks import MLP, AE
+from networks import MLP, MLP_pair, AE
 import rtdl
 
 from imblearn.over_sampling import SMOTE
@@ -76,7 +76,7 @@ class Components():
         if mode == 'large':
             gyms = {}
             ## data ##
-            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'GAN']
+            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'Mixup', 'GAN']
             gyms['preprocess'] = ['minmax', 'normalize']
 
             ## network architecture ##
@@ -92,7 +92,7 @@ class Components():
 
             ## network fitting ##
             gyms['training_strategy'] = [None]
-            gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation']
+            gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation', 'ordinal']
             gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
             gyms['batch_resample'] = [True, False]
             gyms['epochs'] = [20, 50, 100]
@@ -103,7 +103,7 @@ class Components():
         elif mode == 'small':
             gyms = {}
             ## data ##
-            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'GAN']
+            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'Mixup', 'GAN']
             gyms['preprocess'] = ['minmax']
 
             ## network architecture ##
@@ -119,7 +119,8 @@ class Components():
 
             ## network fitting ##
             gyms['training_strategy'] = [None]
-            gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation']
+            # gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation', 'ordinal']
+            gyms['loss_name'] = ['ordinal']
             gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
             gyms['batch_resample'] = [True, False]
             gyms['epochs'] = [20, 50, 100]
@@ -158,10 +159,32 @@ class Components():
             self.data['X_train'] = new_X
             self.data['y_train'] = new_y
 
-        elif self.augmentation == 'Mixup': # mixup method need to verify the loss functions
+        elif self.augmentation == 'Mixup': # mixup method need to modify the loss functions
             # https://arxiv.org/pdf/1710.09412.pdf
             # https://github.com/facebookresearch/mixup-cifar10/blob/main/train.py
-            pass
+
+            # since mixup y would generate continuous training targets, which should therefore modify the loss function
+            # we only mixup the samples belonging to the same class (mainly for the abnormal class)
+            idx_n = np.where(self.data['y_train']==0)[0]
+            idx_a = np.where(self.data['y_train']==1)[0]
+
+            if len(idx_a) < len(idx_n):
+                n_augmentation = len(idx_n) - len(idx_a)
+                x_augmentation = []
+                for i in range(n_augmentation):
+                    lam = np.random.beta(1.0, 1.0) # generate weights
+                    x_augmentation.append(lam * self.data['X_train'][np.random.choice(idx_a, 1)] +
+                                          (1 - lam) * self.data['X_train'][np.random.choice(idx_a, 1)])
+                x_augmentation = np.vstack(x_augmentation)
+
+                new_X = np.concatenate((self.data['X_train'], x_augmentation), axis=0)
+                new_y = np.append(self.data['y_train'], np.repeat(1, n_augmentation))
+                new_X, new_y = self.utils.shuffle(new_X, new_y)
+
+                self.data['X_train'] = new_X
+                self.data['y_train'] = new_y
+            else:
+                pass
 
         elif self.augmentation == 'GAN':
             # could raise error for higher version of sklearn (e.g., >=1.0)
@@ -193,10 +216,15 @@ class Components():
 
         # train loader
         if self.batch_resample:
-            X_train_resample, y_train_resample = self.utils.sampler(self.data['X_train'], self.data['y_train'], self.batch_size)
-            train_tensor = TensorDataset(torch.from_numpy(X_train_resample).float(),
-                                         torch.tensor(y_train_resample).float())
-            self.train_loader = DataLoader(train_tensor, batch_size=self.batch_size, shuffle=False, drop_last=True)
+            if self.loss_name == 'ordinal':
+                self.train_loader = self.utils.sampler_pairs(X_train_tensor=torch.from_numpy(self.data['X_train']).float(),
+                                                             y_train=self.data['y_train'], batch_size=self.batch_size)
+
+            else:
+                X_train_resample, y_train_resample = self.utils.sampler(self.data['X_train'], self.data['y_train'], self.batch_size)
+                train_tensor = TensorDataset(torch.from_numpy(X_train_resample).float(),
+                                             torch.tensor(y_train_resample).float())
+                self.train_loader = DataLoader(train_tensor, batch_size=self.batch_size, shuffle=False, drop_last=True)
         else:
             train_tensor = TensorDataset(torch.from_numpy(self.data['X_train']).float(),
                                          torch.tensor(self.data['y_train']).float())
@@ -240,7 +268,10 @@ class Components():
             act = nn.LeakyReLU()
 
         if self.network_architecture == 'MLP':
-            self.model = MLP(layers=self.layers, input_size=input_size, hidden_size_list=self.hidden_size_list, act_fun=act, p=self.dropout)
+            if self.loss_name == 'ordinal':
+                self.model = MLP_pair(layers=self.layers, input_size=input_size, hidden_size_list=self.hidden_size_list, act_fun=act, p=self.dropout)
+            else:
+                self.model = MLP(layers=self.layers, input_size=input_size, hidden_size_list=self.hidden_size_list, act_fun=act, p=self.dropout)
 
         elif self.network_architecture == 'AE':
             self.model = AE(layers=self.layers, input_size=input_size, hidden_size_list=self.hidden_size_list, act_fun=act, p=self.dropout)
@@ -317,6 +348,10 @@ class Components():
             inlier_loss = torch.abs(s_n)
             outlier_loss = torch.max(torch.zeros_like(s_a), 5.0 - s_a)
             loss = torch.mean(inlier_loss + outlier_loss)
+
+        elif self.loss_name == 'ordinal':
+            loss = torch.mean(torch.abs(y - s))
+
         else:
             raise NotImplementedError
 
@@ -357,7 +392,11 @@ class Components():
                 # data
                 X, y = batch
                 # to device
-                X = X.to(self.device); y = y.to(self.device)
+                if self.loss_name == 'ordinal':
+                    X_left, X_right = X
+                    X_left = X_left.to(self.device); X_right = X_right.to(self.device); y = y.to(self.device)
+                else:
+                    X = X.to(self.device); y = y.to(self.device)
 
                 # clear gradient
                 self.model.zero_grad()
@@ -365,6 +404,8 @@ class Components():
                 # loss forward
                 if self.network_architecture == 'FTT':
                     s = self.model(x_num=X, x_cat=None)
+                elif self.loss_name == 'ordinal':
+                    s = self.model(X_left=X_left, X_right=X_right)
                 else:
                     s = self.model(X)
 
@@ -379,15 +420,33 @@ class Components():
         return self
 
     @torch.no_grad()
-    def f_predict_score(self):
+    def f_predict_score(self, num=30):
         self.model.eval()
 
         if self.network_architecture == 'FTT':
             score_test = self.model(self.test_tensor.to(self.device), x_cat=None)
+        elif self.loss_name == 'ordinal':
+            score_test = []
+            X_train = torch.from_numpy(self.data['X_train']).float().to(self.device)
+            X_test = self.test_tensor.to(self.device)
+
+            for i in range(X_test.size(0)):
+                # postive and negative sample indices in the training set
+                index_a = np.random.choice(np.where(self.data['y_train']==1)[0], num, replace=True)
+                index_u = np.random.choice(np.where(self.data['y_train']==0)[0], num, replace=True)
+                X_train_a_tensor = X_train[index_a]
+                X_train_u_tensor = X_train[index_u]
+
+                score_a_x = self.model(X_train_a_tensor, torch.cat(num * [X_test[i].view(1, -1)]))
+                score_x_u = self.model(torch.cat(num * [X_test[i].view(1, -1)]), X_train_u_tensor)
+                score_sub = torch.mean(score_a_x + score_x_u)
+                score_test.append(score_sub.cpu().item())
+
+            score_test = np.array(score_test)
         else:
             score_test = self.model(self.test_tensor.to(self.device))
+            score_test = score_test.squeeze().cpu().numpy()
 
-        score_test = score_test.squeeze().cpu().numpy()
         metrics = self.utils.metric(y_true=self.data['y_test'], y_score=score_test, pos_label=1)
 
         return metrics

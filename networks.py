@@ -1,8 +1,7 @@
 import torch
 from torch import nn
-import numpy as np
 
-# ADSD based on MLP backbone
+# MLP backbone
 class MLP(nn.Module):
     def __init__(self, layers, input_size, hidden_size_list, act_fun, p):
         super(MLP, self).__init__()
@@ -33,7 +32,39 @@ class MLP(nn.Module):
 
         return score
 
-# ADSD based on AutoEncoder backbone, from "Feature Encoding with AutoEncoders for Weakly-supervised Anomaly Detection"
+# MLP backbone for paired input (e.g., PReNet)
+class MLP_pair(nn.Module):
+    def __init__(self, layers, input_size, hidden_size_list, act_fun, p):
+        super(MLP_pair, self).__init__()
+        assert layers == len(hidden_size_list)
+
+        # feature representation layer
+        self.feature = nn.ModuleList()
+        for i in range(layers):
+            if i == 0:
+                self.feature.append(nn.Sequential(nn.Linear(input_size, hidden_size_list[i]),
+                                                  act_fun,
+                                                  nn.Dropout(p=p)))
+            else:
+                self.feature.append(nn.Sequential(nn.Linear(hidden_size_list[i-1], hidden_size_list[i]),
+                                                  act_fun,
+                                                  nn.Dropout(p=p)))
+
+        # anomaly scoring layer
+        self.reg = nn.Linear(20*2, 1)
+
+    def forward(self, X_left, X_right):
+        # feature representation
+        for i, f in enumerate(self.feature):
+            X_left = f(X_left)
+            X_right = f(X_right)
+
+        # anomaly scoring
+        score = self.reg(torch.cat((X_left, X_right), dim=1))
+
+        return score
+
+# AutoEncoder backbone, from "Feature Encoding with AutoEncoders for Weakly-supervised Anomaly Detection"
 class AE(nn.Module):
     def __init__(self, layers, input_size, hidden_size_list, act_fun, p):
         super(AE, self).__init__()
