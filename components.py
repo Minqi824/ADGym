@@ -192,7 +192,7 @@ class Components():
             # we modify the GAN's params for accelerating, where the original gan_params = {"batch_size": 500, "patience": 25, "epochs" : 500,}
             new_X, new_y = GANGenerator(gen_x_times=0.2, gan_params={"batch_size": 100,
                                                                      "patience": 5,
-                                                                     "epochs" : 50,}).generate_data_pipe(pd.DataFrame(self.data['X_train']),
+                                                                     "epochs" : 100,}).generate_data_pipe(pd.DataFrame(self.data['X_train']),
                                                                                                           pd.DataFrame(self.data['y_train'], columns=['target']),
                                                                                                           pd.DataFrame(self.data['X_train']))
 
