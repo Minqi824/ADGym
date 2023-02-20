@@ -7,22 +7,31 @@ from iteration_utilities import unique_everseen
 import time
 import gc
 from keras import backend as K
-
-
 from data_generator import DataGenerator
 from components import Components
 
-# dataset + lr +seed
+# TODO
+# using the absolute anomaly score in minus, inverse and hinge loss?
+# since these loss functions are originally designed for the representation learning,
+# e.g., Euclidean distance or reconstruction errors, which is always positive
+
 
 class ADGym():
     def __init__(self, la=0.10, suffix='', grid_mode='small', grid_size=100, gan_specific=False):
+        '''
+        :param la: number of labeled anomalies
+        :param suffix: suffix for save experimental results
+        :param grid_mode: use large or small scale of combinations
+        :param grid_size: whether to sampling grids to save computational cost
+        :param gan_specific: whether to specific GAN-based data augmentation method (which is time-consuming)
+        '''
         self.la = la
         self.suffix = suffix + '_' + str(la) + '_' + grid_mode + '_' + str(grid_size) + '_GAN(' + str(gan_specific) + ')'
         self.seed_list = list(np.arange(1) + 1)
 
         self.grid_mode = grid_mode
         self.grid_size = grid_size
-        self.gan_specific=gan_specific
+        self.gan_specific = gan_specific
 
         if isinstance(la, int):
             self.mode = 'nla'
@@ -31,16 +40,16 @@ class ADGym():
         else:
             raise NotImplementedError
 
-        self.generate_duplicates = False
-        self.n_samples_lower_bound = 1000
-        self.n_samples_upper_bound = 3000
+        self.generate_duplicates = False # whether to generate duplicates for small datasets
+        self.n_samples_lower_bound = 1000 # lower bound of sample size
+        self.n_samples_upper_bound = 3000 # upper bound of sample size
         self.data_generator = DataGenerator(generate_duplicates=self.generate_duplicates,
                                             n_samples_lower_bound=self.n_samples_lower_bound,
                                             n_samples_upper_bound=self.n_samples_upper_bound)
 
+    # filtering out datasets that do not meet the requirements
     def dataset_filter(self, dataset_list_org):
-        dataset_list = []
-        dataset_size = []
+        dataset_list, dataset_size = [], []
         for dataset in dataset_list_org:
             add = True
             for seed in self.seed_list:
@@ -49,8 +58,8 @@ class ADGym():
 
                 data = self.data_generator.generator(la=1.00, at_least_one_labeled=True)
 
-                if not self.generate_duplicates and len(data['y_train']) + len(
-                        data['y_test']) < self.n_samples_lower_bound:
+                if not self.generate_duplicates and \
+                        len(data['y_train']) + len(data['y_test']) < self.n_samples_lower_bound:
                     add = False
 
                 else:
@@ -75,9 +84,9 @@ class ADGym():
         return dataset_list
 
     def generate_gyms(self):
-        # generator combinations of different components
+        # generate combinations of different components
         com = Components(gan_specific=self.gan_specific)
-        print(com.gym(mode=self.grid_mode))
+        print(com.gym(mode=self.grid_mode)) # see the entire components in the current grid mode (large or small)
 
         gyms_comb = list(product(*list(com.gym(mode=self.grid_mode).values())))
         keys = list(com.gym(mode=self.grid_mode).keys())

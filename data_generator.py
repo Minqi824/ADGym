@@ -8,9 +8,9 @@ from utils import Utils
 
 class DataGenerator():
     def __init__(self,
-                 seed:int=42,
-                 dataset:str=None,
-                 test_size:float=0.3,
+                 seed: int=42,
+                 dataset: str=None,
+                 test_size: float=0.3,
                  generate_duplicates=False,
                  n_samples_lower_bound=None,
                  n_samples_upper_bound=None,
@@ -34,7 +34,7 @@ class DataGenerator():
 
         # dataset list
         self.dataset_list = [os.path.splitext(_)[0] for _ in os.listdir('datasets')
-                             if os.path.splitext(_)[1] == '.npz'] # classical AD datasets
+                             if os.path.splitext(_)[1] == '.npz']
 
         # myutils function
         self.utils = Utils()
@@ -48,8 +48,11 @@ class DataGenerator():
                   at_least_one_labeled=False,
                   meta=False):
         '''
-        la: labeled anomalies, can be either the ratio of labeled anomalies or the number of labeled anomalies
-        at_least_one_labeled: whether to guarantee at least one labeled anomalies in the training set
+        :param X: input X features
+        :param y: input y labels
+        :param la: labeled anomalies, can be either the ratio of labeled anomalies or the number of labeled anomalies
+        :param at_least_one_labeled: whether to guarantee at least one labeled anomalies in the training set
+        :param meta: whether to save the meta features extracted by the MetaOD method (see https://github.com/yzhao062/MetaOD)
         '''
 
         # set seed for reproducible results
@@ -63,7 +66,7 @@ class DataGenerator():
             X = data['X']
             y = data['y']
 
-        # if the dataset is too small, generating duplicate smaples up to n_samples_lower_bound
+        # if the dataset is too small, generating duplicate samples up to n_samples_lower_bound
         if len(y) < self.n_samples_lower_bound and self.generate_duplicates:
             if self.verbose:
                 print(f'generating duplicate samples for dataset {self.dataset}...')
@@ -81,7 +84,7 @@ class DataGenerator():
             X = X[idx_sample]
             y = y[idx_sample]
 
-        # spliting the current data to the training set and testing set
+        # splitting current dataset to the training set and testing set
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=self.test_size, shuffle=True, stratify=y)
 
         # idx of normal samples and unlabeled/labeled anomalies
@@ -103,7 +106,7 @@ class DataGenerator():
 
         idx_unlabeled_anomaly = np.setdiff1d(idx_anomaly, idx_labeled_anomaly)
 
-        # unlabel data = normal data + unlabeled anomalies (which is considered as contamination)
+        # unlabel data = normal data + unlabeled anomalies (the latter is considered as contamination)
         idx_unlabeled = np.append(idx_normal, idx_unlabeled_anomaly)
 
         del idx_anomaly, idx_unlabeled_anomaly

@@ -18,39 +18,69 @@ import torch.nn.functional as F
 # we decouple the network components from the existing literature
 class Components():
     def __init__(self,
-                 seed:int=None,
+                 seed: int=None,
                  data=None,
-                 augmentation:str=None,
-                 gan_specific:bool=False,
-                 preprocess:str=None,
-                 network_architecture:str=None,
-                 layers:int=None,
-                 hidden_size_list:list=None,
-                 act_fun:str=None,
-                 dropout:float=None,
-                 network_initialization:str=None,
+                 augmentation: str=None,
+                 gan_specific: bool=False,
+                 preprocess: str=None,
+                 network_architecture: str=None,
+                 layers: int=None,
+                 hidden_size_list: list=None,
+                 act_fun: str=None,
+                 dropout: float=None,
+                 network_initialization: str=None,
                  training_strategy=None,
-                 loss_name:str=None,
-                 optimizer_name:str=None,
-                 batch_resample:bool=None,
-                 epochs:int=None,
-                 batch_size:int=None,
-                 lr:float=None,
-                 weight_decay:float=None):
+                 loss_name: str=None,
+                 optimizer_name: str=None,
+                 batch_resample: bool=None,
+                 epochs: int=None,
+                 batch_size: int=None,
+                 lr: float=None,
+                 weight_decay: float=None):
+        '''
+        combination pipeline: data augmentation —— data processing —— network architecture —— network training
+
+        **data augmentation**
+        :param augmentation: data augmentation methods
+        :param gan_specific: whether to use GAN for data augmentation
+
+        **data data processing**
+        :param preprocess: data preprocessing methods
+
+        **network architecture**
+        :param network_architecture: neural network architectures
+        :param layers: number of hidden layers in neural network
+        :param hidden_size_list: number of neurons in the hidden size
+        :param act_fun: activation function (layer) in neural network
+        :param dropout: dropout rate in neural network
+
+        **network training**
+        :param network_initialization: initialization methods of network weights
+        :param training_strategy: training strategy of neural network
+        :param loss_name: loss function name used for training model
+        :param optimizer_name: optimizer name
+        :param batch_resample: whether to use the batch resampling strategy in model training
+        :param epochs: number of training epochs
+        :param batch_size: training batch size
+        :param lr: learning rate
+        :param weight_decay: weight decay specified in the optimizer
+        '''
 
         self.utils = Utils()
         self.seed = seed
         self.data = data
 
-        # whether to use the gpu device
+        # whether to use the gpu device (e.g., gpu for the FTTransformer network architecture)
         if network_architecture == 'FTT':
             self.device = self.utils.get_device(gpu_specific=True)
         else:
             self.device = self.utils.get_device(gpu_specific=False)
 
-        ## data ##
+        ## data augmentation ##
         self.augmentation = augmentation
         self.gan_specific = gan_specific
+
+        ## data preprocessing ##
         self.preprocess = preprocess
 
         ## network architecture ##
@@ -59,11 +89,9 @@ class Components():
         self.hidden_size_list = hidden_size_list
         self.act_fun = act_fun
         self.dropout = dropout
-
-        ## network initialization ##
         self.network_initialization = network_initialization
 
-        ## network fitting ##
+        ## network training ##
         self.training_strategy = training_strategy
         self.loss_name = loss_name
         self.optimizer_name = optimizer_name
@@ -87,12 +115,10 @@ class Components():
             gyms['hidden_size_list'] = [[20], [100, 20], [100, 50, 20]]
             gyms['act_fun'] = ['Tanh', 'ReLU', 'LeakyReLU']
             gyms['dropout'] = [0.0, 0.1, 0.3]
-
-            ## network initialization ##
             gyms['network_initialization'] = ['default', 'xavier_uniform', 'xavier_normal',
                                               'kaiming_uniform', 'kaiming_normal']
 
-            ## network fitting ##
+            ## network training ##
             gyms['training_strategy'] = [None]
             gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation'] # ordinal
             gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
@@ -102,7 +128,7 @@ class Components():
             gyms['lr'] = [1e-2, 1e-3]
             gyms['weight_decay'] = [1e-2, 1e-4]
 
-        elif mode == 'small':
+        elif mode == 'small': # we only discuss the core components in the small grid mode
             gyms = {}
             ## data ##
             gyms['augmentation'] = ['GAN'] if self.gan_specific else [None, 'Oversampling', 'SMOTE', 'Mixup']
@@ -114,12 +140,10 @@ class Components():
             gyms['hidden_size_list'] = [[100, 20]]
             gyms['act_fun'] = ['Tanh', 'ReLU', 'LeakyReLU']
             gyms['dropout'] = [0.0]
-
-            ## network initialization ##
             gyms['network_initialization'] = ['default', 'xavier_uniform', 'xavier_normal',
                                               'kaiming_uniform', 'kaiming_normal']
 
-            ## network fitting ##
+            ## network training ##
             gyms['training_strategy'] = [None]
             gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation'] # ordinal
             gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
@@ -134,7 +158,8 @@ class Components():
 
         return gyms
 
-    def f_augmentation(self): # theoretically, data augmentation are only for the training set
+    # data augmentation should only perform on the training set
+    def f_augmentation(self):
         if self.augmentation is None:
             pass
 
@@ -144,7 +169,7 @@ class Components():
 
             if len(idx_a) < len(idx_n):
                 # resampling
-                idx_a = np.random.choice(idx_a, len(idx_n))
+                idx_a = np.random.choice(idx_a, len(idx_n), replace=True)
                 idx = np.append(idx_n, idx_a)
                 random.shuffle(idx)
 
@@ -165,7 +190,7 @@ class Components():
             # https://github.com/facebookresearch/mixup-cifar10/blob/main/train.py
 
             # since mixup y would generate continuous training targets, which should therefore modify the loss function
-            # we only mixup the samples belonging to the same class (mainly for the abnormal class)
+            # we only mixup the samples belonging to the same class (mainly for the abnormal class that is the minority)
             idx_n = np.where(self.data['y_train']==0)[0]
             idx_a = np.where(self.data['y_train']==1)[0]
 
@@ -189,13 +214,13 @@ class Components():
 
         elif self.augmentation == 'GAN':
             # could raise error for higher version of sklearn (e.g., >=1.0)
-            # we modify the GAN's params for accelerating, where the original gan_params = {"batch_size": 500, "patience": 25, "epochs" : 500,}
+            # we modify the GAN's params for accelerating,
+            # where the original gan_params = {"batch_size": 500, "patience": 25, "epochs" : 500,}
             new_X, new_y = GANGenerator(gen_x_times=0.2, gan_params={"batch_size": 100,
                                                                      "patience": 5,
                                                                      "epochs" : 100,}).generate_data_pipe(pd.DataFrame(self.data['X_train']),
                                                                                                           pd.DataFrame(self.data['y_train'], columns=['target']),
                                                                                                           pd.DataFrame(self.data['X_train']))
-
             self.data['X_train'] = new_X.values
             self.data['y_train'] = new_y.values
 
@@ -236,7 +261,7 @@ class Components():
 
         return self
 
-    def init_weights(self, m):
+    def f_init_weights(self, m):
         if isinstance(m, nn.Linear):
             if self.network_initialization == 'default':
                 pass
@@ -253,7 +278,7 @@ class Components():
 
     def f_network(self):
         '''
-        We including several network architectures, including:
+        We including several network architectures that are widely used in either AD or classifiaction problem, including:
         - MLP
         - AutoEncoder
         - ResNet
@@ -303,7 +328,7 @@ class Components():
         else:
             raise NotImplementedError
 
-        self.model.to(self.device)
+        self.model.to(self.device) # to device
 
         return self
 
@@ -314,17 +339,19 @@ class Components():
     def f_loss(self, s, y):
         '''
         We including several loss functions in the existing AD algorithms, including:
-        - Minus loss
-        - Inverse loss
-        - Hinge loss
-        - Deviation loss
-        - Ordinal loss (to do)
+        - BCE (Binary Cross Entropy) loss
+        - Focal loss (From the paper "Focal Loss for Dense Object Detection")
+        - Minus loss (From the paper "Lifelong anomaly detection through unlearning")
+        - Inverse loss (From the paper "Deep semi-supervised anomaly detection")
+        - Hinge loss (From the paper "Learning Representations of Ultrahigh-dimensional Data for Random Distance-based Outlier Detection")
+        - Deviation loss (From the paper "Deep anomaly detection with deviation networks")
+        - Ordinal loss (to do) (From the paper "Deep Weakly-supervised Anomaly Detection")
         '''
         ranking_loss = torch.nn.MarginRankingLoss(margin=5.0) # for hinge loss
 
         s = s.squeeze()
-        s_n = s[y == 0]
-        s_a = s[y == 1]
+        s_n = s[y == 0] # anomaly score of normal (unlabeled) samples
+        s_a = s[y == 1] # anomaly score of labeled anomalies
 
         if self.loss_name == 'bce':
             loss = F.binary_cross_entropy_with_logits(input=s, target=y, reduction="mean")
@@ -342,9 +369,9 @@ class Components():
             loss = ranking_loss(s_a, s_n, torch.ones_like(s_a))
 
         elif self.loss_name == 'deviation':
-            ref = torch.randn(5000)  # sampling from the normal distribution
-            s_n = (s_n - torch.mean(ref)) / torch.std(ref) # normalized anomaly score
-            s_a = (s_a - torch.mean(ref)) / torch.std(ref) # normalized anomaly score
+            ref = torch.randn(5000)  # sampling references from the normal distribution
+            s_n = (s_n - torch.mean(ref)) / torch.std(ref) # normalized anomaly score of normal samples
+            s_a = (s_a - torch.mean(ref)) / torch.std(ref) # normalized anomaly score of labeled anomalies
 
             inlier_loss = torch.abs(s_n)
             outlier_loss = torch.max(torch.zeros_like(s_a), 5.0 - s_a)
@@ -362,10 +389,13 @@ class Components():
         # TODO: weight decay
         if self.optimizer_name == 'SGD':
             self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+
         elif self.optimizer_name == 'Adam':
             self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+
         elif self.optimizer_name == 'RMSprop':
             self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+
         else:
             raise NotImplementedError
 
@@ -382,7 +412,7 @@ class Components():
 
         # network initialization
         self.f_network() # build network
-        self.model.apply(self.init_weights) # weight initialization
+        self.model.apply(self.f_init_weights) # network weight initialization
 
         # optimizer
         self.f_optimizer()
@@ -426,6 +456,7 @@ class Components():
 
         if self.network_architecture == 'FTT':
             score_test = self.model(self.test_tensor.to(self.device), x_cat=None)
+
         elif self.loss_name == 'ordinal':
             score_test = []
             X_train = torch.from_numpy(self.data['X_train']).float().to(self.device)
@@ -444,6 +475,7 @@ class Components():
                 score_test.append(score_sub.cpu().item())
 
             score_test = np.array(score_test)
+
         else:
             score_test = self.model(self.test_tensor.to(self.device))
             score_test = score_test.squeeze().cpu().numpy()

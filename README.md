@@ -1,30 +1,34 @@
-# AD Gym
+# ADGym
 
-AD Gym could be discussed in several scenarios (to do), including:
-- unsupervised
-- semi-supervised
-- supervised
+ADGym is able to applied to unsupervised (to do), semi-/weakly-supervised and fully-supervised scenarios.
+Currently, ADGym is mainly devised for the **tabular** data.
+
+ADGym considers multiple components in each part of the following pipeline:  
+**Data Augmentation** → **Data Preprocessing** → **Network Architecture** → **Network Training**  
+
+Each part of the pipeline can be instantiated by multiple components:
+| Pipeline | Detailed Components | Value |
+|:--:|:--:|:--:|
+|Data Augmentation||[Oversampling, SMOTE, Mixup, GAN]|
+
 
 ### Data Augmentation
 - Oversampling
 - SMOTE
 - Mixup
 - GAN
-- ...
 
 ### Data Preprocessing
 - MinMax
 - Normalization
-- ...
 
 ### Network Architecture
 - MLP
 - AutoEncoder
 - ResNet
-- Transformer
-- ...
+- FTTransformer
 
-### Network Initialization
+### Network Training
 - default (pytorch default)
 - Xavier (uniform)
 - Xavier (normal)
@@ -35,9 +39,8 @@ AD Gym could be discussed in several scenarios (to do), including:
 - neurons
 - hidden layers
 - batch normalization
-- dropout
 - activation layer
-- ...
+- dropout
 
 ### Loss Function
 - Cross Entropy
@@ -53,6 +56,9 @@ AD Gym could be discussed in several scenarios (to do), including:
 - batch resampling
 - ...
 
+## Python Package Requirements
+- iteration_utilities==0.11.0
+
 ## Update Logs
 - 2022.11.17: run the experiments of current component combinations
 - 2022.11.23: add the GAN-based data augmentation method
@@ -61,5 +67,6 @@ AD Gym could be discussed in several scenarios (to do), including:
 - 2023.01.04: add the Mixup data augmentation method
 - 2023.01.04: add different network initialization methods
 - 2023.01.04: add the ordinal loss in PReNet model
+- 2023.01.04: revise the labeled anomalies to the number (instead of ratio) of labeled anomalies
 - 2023.02.20: restart ADGym
 - 2023.02.20: add two baselines: random selection and model selection based on the partially labeled data
