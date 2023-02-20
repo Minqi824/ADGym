@@ -15,6 +15,8 @@ from components import Components
 # since these loss functions are originally designed for the representation learning,
 # e.g., Euclidean distance or reconstruction errors, which is always positive
 
+# batch normalization
+
 
 class ADGym():
     def __init__(self, la=0.10, suffix='', grid_mode='small', grid_size=100, gan_specific=False):

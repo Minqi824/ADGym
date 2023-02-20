@@ -6,58 +6,37 @@ Currently, ADGym is mainly devised for the **tabular** data.
 ADGym considers multiple components in each part of the following pipeline:  
 **Data Augmentation** → **Data Preprocessing** → **Network Architecture** → **Network Training**  
 
-Each part of the pipeline can be instantiated by multiple components:
+Each part of the pipeline can be instantiated by multiple components (core components are marked in **bold**):
 | Pipeline | Detailed Components | Value |
 |:--:|:--:|:--:|
-|Data Augmentation||[Oversampling, SMOTE, Mixup, GAN]|
+|**Data Augmentation**||[Oversampling, SMOTE, Mixup, GAN]|
+|Data Preprocessing||[MinMax, Normalization]|
+|Network Architecture|**Network Architecture**|[MLP, AutoEncoder, ResNet, FTTransformer]|
+||Hidden Layers|[1, 2, 3]|
+||Neurons|[[20], [100, 20], [100, 50, 20]]|
+||**Activation**|[Tanh, ReLU, LeakyReLU]|
+||Dropout|[0.0, 0.1, 0.3]|
+||**Initialization**|[PyTorch default, Xavier (uniform), Xavier (normal), Kaiming (uniform), Kaiming (normal)]|
+|Network Training|**Loss Function**|[BCE, Focal, Minus, Inverse, Hinge, Deviation, Ordinal]|
+||**Optimizer**|[SGD, Adam, RMSprop]|
+||**Batch Resampling**|[False, True]|
+||**Epochs**|[20, 50, 100]|
+||Batch Size|[16, 64, 256]|
+||**Learning Rate**|[1e-2, 1e-3]|
+||Weight Decay|[1e-2, 1e-4]|
 
-
-### Data Augmentation
-- Oversampling
-- SMOTE
-- Mixup
-- GAN
-
-### Data Preprocessing
-- MinMax
-- Normalization
-
-### Network Architecture
-- MLP
-- AutoEncoder
-- ResNet
-- FTTransformer
-
-### Network Training
-- default (pytorch default)
-- Xavier (uniform)
-- Xavier (normal)
-- Kaiming (uniform)
-- Kaiming (normal)
-
-### Network Hyperparameter
-- neurons
-- hidden layers
-- batch normalization
-- activation layer
-- dropout
-
-### Loss Function
-- Cross Entropy
-- Focal loss
-- Minus loss
-- Inverse loss
-- Hinge loss
-- Deviation loss
-- Ordinal loss
-- ...
-
-### Training Strategy
-- batch resampling
-- ...
+## Quick Start with ADGym
+```python
+to do...
+```
 
 ## Python Package Requirements
 - iteration_utilities==0.11.0
+- metaod==0.0.6
+- scikit-learn==0.23.2
+- install imbalanced-learn==0.7.0
+- torch==1.9.0
+- tabgan==1.2.1
 
 ## Update Logs
 - 2022.11.17: run the experiments of current component combinations
