@@ -1,4 +1,4 @@
-# ADGym
+# ADGym :running_man:
 
 ADGym is able to applied to unsupervised (to do), semi-/weakly-supervised and fully-supervised scenarios.
 Currently, ADGym is mainly devised for the **tabular** data.
