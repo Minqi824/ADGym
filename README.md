@@ -61,3 +61,5 @@ AD Gym could be discussed in several scenarios (to do), including:
 - 2023.01.04: add the Mixup data augmentation method
 - 2023.01.04: add different network initialization methods
 - 2023.01.04: add the ordinal loss in PReNet model
+- 2023.02.20: restart ADGym
+- 2023.02.20: add two baselines: random selection and model selection based on the partially labeled data
