@@ -1,3 +1,5 @@
+import sys
+
 import numpy as np
 import os
 from math import ceil
@@ -33,7 +35,7 @@ class DataGenerator():
         self.n_samples_upper_bound = n_samples_upper_bound
 
         # dataset list
-        self.dataset_list = [os.path.splitext(_)[0] for _ in os.listdir('datasets')
+        self.dataset_list = [os.path.splitext(_)[0] for _ in os.listdir(os.path.join(os.path.dirname(__file__), 'datasets'))
                              if os.path.splitext(_)[1] == '.npz']
 
         # myutils function
@@ -62,7 +64,7 @@ class DataGenerator():
         if self.dataset is None:
             assert X is not None and y is not None, "For customized dataset, you should provide the X and y!"
         else:
-            data = np.load(os.path.join('datasets', self.dataset + '.npz'), allow_pickle=True)
+            data = np.load(os.path.join(os.path.dirname(__file__), 'datasets', self.dataset + '.npz'), allow_pickle=True)
             X = data['X']
             y = data['y']
 

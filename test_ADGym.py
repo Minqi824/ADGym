@@ -28,7 +28,7 @@ class ADGym():
         :param gan_specific: whether to specific GAN-based data augmentation method (which is time-consuming)
         '''
         self.la = la
-        self.suffix = suffix + '_' + str(la) + '_' + grid_mode + '_' + str(grid_size) + '_GAN(' + str(gan_specific) + ')'
+        self.suffix = '-'.join([suffix, str(la), grid_mode, str(grid_size), 'GAN', str(gan_specific)])
         self.seed_list = list(np.arange(1) + 1)
 
         self.grid_mode = grid_mode
@@ -88,31 +88,33 @@ class ADGym():
     def generate_gyms(self):
         # generate combinations of different components
         com = Components(gan_specific=self.gan_specific)
-        print(com.gym(mode=self.grid_mode)) # see the entire components in the current grid mode (large or small)
+        print(com.gym(mode=self.grid_mode)) # see the entire components in the current grid mode (either large or small)
 
         gyms_comb = list(product(*list(com.gym(mode=self.grid_mode).values())))
         keys = list(com.gym(mode=self.grid_mode).keys())
         gyms = []
 
         for _ in tqdm(gyms_comb):
-            gym = {}
+            gym = {} # save components in dict
             for j, __ in enumerate(_):
                 gym[keys[j]] = __
 
             if gym['layers'] != len(gym['hidden_size_list']):
                 continue
 
+            # for inverse loss, we do not perform batch resampling strategy
             if gym['loss_name'] == 'inverse' and gym['batch_resample']:
                 continue
 
+            # for other loss functions, we use batch resampling strategy
             if gym['loss_name'] != 'inverse' and not gym['batch_resample']:
                 continue
 
-            # To Do: ordinal loss for other network architectures
+            # ToDo: ordinal loss for other network architectures
             if gym['loss_name'] == 'ordinal' and gym['network_architecture'] != 'MLP':
                 continue
 
-            # delete ResNet & FTT ReLU: activation layers
+            # delete components of network architecture = ResNet or FTT while the activation function is not RELU
             if gym['network_architecture'] in ['ResNet', 'FTT']:
                 if gym['act_fun'] != 'ReLU':
                     continue
@@ -124,21 +126,22 @@ class ADGym():
 
             gyms.append(gym)
 
-        # random selection
+        # random selection for considering computational cost
         if len(gyms) > self.grid_size:
             idx = np.random.choice(np.arange(len(gyms)), self.grid_size, replace=False)
             gyms = [gyms[_] for _ in idx]
-        # remove duplicates
+        # remove duplicated components
         gyms = list(unique_everseen(gyms))
 
         return gyms
 
     def run(self):
-        # datasets
+        # dataset list
         dataset_list = [os.path.splitext(_)[0] for _ in os.listdir('datasets') if os.path.splitext(_)[1] == '.npz']
+        # filtering dataset
         dataset_list = self.dataset_filter(dataset_list)
 
-        # gyms
+        # generate components
         gyms = self.generate_gyms()
 
         # save results
@@ -218,13 +221,14 @@ class ADGym():
                     df_results_AUCROC.loc[str(gym), dataset] = np.mean(aucroc_list)
                     df_results_AUCPR.loc[str(gym), dataset] = np.mean(aucpr_list)
                     df_results_runtime.loc[str(gym), dataset] = np.mean(time_list)
-                print(f'Dataset: {dataset}, Current combination: {gym}, training sucessfully.')
+                    print(f'Dataset: {dataset}, Current combination: {gym}, training sucessfully.')
+                else:
+                    print(f'Dataset: {dataset}, Current combination: {gym}, training failure.')
 
                 # output
-                df_results_AUCROC.to_csv(os.path.join('result', 'result_AUCROC' + self.suffix + '.csv'), index=True)
-                df_results_AUCPR.to_csv(os.path.join('result', 'result_AUCPR' + self.suffix + '.csv'), index=True)
-                df_results_runtime.to_csv(os.path.join('result', 'result_runtime' + self.suffix + '.csv'), index=True)
+                df_results_AUCROC.to_csv(os.path.join('result', 'result-AUCROC' + self.suffix + '.csv'), index=True)
+                df_results_AUCPR.to_csv(os.path.join('result', 'result-AUCPR' + self.suffix + '.csv'), index=True)
+                df_results_runtime.to_csv(os.path.join('result', 'result-runtime' + self.suffix + '.csv'), index=True)
 
-
-adgym = ADGym(la=5, grid_mode='small', grid_size=10000, gan_specific=True)
+adgym = ADGym(la=5, grid_mode='small', grid_size=10000, gan_specific=False)
 adgym.run()
