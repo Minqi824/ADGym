@@ -25,7 +25,7 @@ class Utils():
         u = 0.5 * (a + b) * (a + b + 1) + b
         return int(u)
 
-    def get_device(self, gpu_specific=False):
+    def get_device(self, gpu_specific=True):
         if gpu_specific:
             if torch.cuda.is_available():
                 n_gpu = torch.cuda.device_count()

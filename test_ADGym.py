@@ -230,5 +230,5 @@ class ADGym():
                 df_results_AUCPR.to_csv(os.path.join('result', 'result-AUCPR' + self.suffix + '.csv'), index=True)
                 df_results_runtime.to_csv(os.path.join('result', 'result-runtime' + self.suffix + '.csv'), index=True)
 
-adgym = ADGym(la=5, grid_mode='small', grid_size=10000, gan_specific=False)
+adgym = ADGym(la=5, grid_mode='small', grid_size=1000, gan_specific=False)
 adgym.run()

@@ -248,10 +248,10 @@ class RunPipeline():
                 df_time_fit[model_name].iloc[i] = time_fit
                 df_time_inference[model_name].iloc[i] = time_inference
 
-                df_AUCROC.to_csv(os.path.join(os.getcwd(), 'result', 'AUCROC_' + self.suffix + '.csv'), index=True)
-                df_AUCPR.to_csv(os.path.join(os.getcwd(), 'result', 'AUCPR_' + self.suffix + '.csv'), index=True)
-                df_time_fit.to_csv(os.path.join(os.getcwd(), 'result', 'Time(fit)_' + self.suffix + '.csv'), index=True)
-                df_time_inference.to_csv(os.path.join(os.getcwd(), 'result', 'Time(inference)_' + self.suffix + '.csv'), index=True)
+                df_AUCROC.to_csv(os.path.join(os.getcwd(), 'result', 'AUCROC-' + self.suffix + '.csv'), index=True)
+                df_AUCPR.to_csv(os.path.join(os.getcwd(), 'result', 'AUCPR-' + self.suffix + '.csv'), index=True)
+                df_time_fit.to_csv(os.path.join(os.getcwd(), 'result', 'Time-fit-' + self.suffix + '.csv'), index=True)
+                df_time_inference.to_csv(os.path.join(os.getcwd(), 'result', 'Time-inference-' + self.suffix + '.csv'), index=True)
 
 # run the above pipeline for reproducing the results in the paper
 pipeline = RunPipeline(suffix='SOTA', parallel='semi-supervise', mode='nla')

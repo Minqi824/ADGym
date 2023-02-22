@@ -71,10 +71,7 @@ class Components():
         self.data = data
 
         # whether to use the gpu device (e.g., gpu for the FTTransformer network architecture)
-        if network_architecture == 'FTT':
-            self.device = self.utils.get_device(gpu_specific=True)
-        else:
-            self.device = self.utils.get_device(gpu_specific=False)
+        self.device = self.utils.get_device()
 
         ## data augmentation ##
         self.augmentation = augmentation
@@ -456,6 +453,7 @@ class Components():
 
         if self.network_architecture == 'FTT':
             score_test = self.model(self.test_tensor.to(self.device), x_cat=None)
+            score_test = score_test.squeeze().cpu().numpy()
 
         elif self.loss_name == 'ordinal':
             score_test = []

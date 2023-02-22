@@ -188,7 +188,6 @@ class meta():
 
         return pred_performance
 
-
 # run experiments for comparing proposed meta classifier and current SOTA methods
 for metric in ['AUCPR']:
     # result of current SOTA models
@@ -197,7 +196,7 @@ for metric in ['AUCPR']:
     result_SOTA = result_SOTA_semi.merge(result_SOTA_sup, how='inner', on='Unnamed: 0')
     del result_SOTA_semi, result_SOTA_sup
 
-    meta_classifier_performance = np.repeat(0, result_SOTA.shape[0])
+    meta_classifier_performance = np.repeat(0, result_SOTA.shape[0]).astype(float)
     for i in range(result_SOTA.shape[0]):
         test_dataset, test_la, test_seed = ast.literal_eval(result_SOTA.iloc[i, 0])
         print(f'Experiments on meta classifier: Dataset: {test_dataset}, la: {test_la}, seed: {test_seed}')
@@ -211,8 +210,8 @@ for metric in ['AUCPR']:
                         test_la=test_la)
 
         try:
-            metric = run_meta.meta_fit2test()
-            meta_classifier_performance[i] = metric
+            perf = run_meta.meta_fit2test()
+            meta_classifier_performance[i] = perf
         except Exception as error:
             print(f'Something error when training meta-classifier: {error}')
             meta_classifier_performance[i] = -1
