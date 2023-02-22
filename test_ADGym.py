@@ -19,7 +19,7 @@ from components import Components
 
 
 class ADGym():
-    def __init__(self, la=0.10, suffix='', grid_mode='small', grid_size=100, gan_specific=False):
+    def __init__(self, la=5, suffix='', grid_mode='small', grid_size=100, gan_specific=False):
         '''
         :param la: number of labeled anomalies
         :param suffix: suffix for save experimental results

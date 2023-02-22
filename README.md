@@ -36,6 +36,7 @@ to do...
 - scikit-learn==0.23.2
 - install imbalanced-learn==0.7.0
 - torch==1.9.0
+- tensorflow==2.8.0
 - tabgan==1.2.1
 
 ## Update Logs

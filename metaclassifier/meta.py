@@ -88,7 +88,6 @@ class meta():
 
         components_df = pd.DataFrame(components_list_diff)
         components_df = components_df.replace([None], 'None')
-        components_df = components_df.replace(None, 'None')
 
         # encode components to int index for preparation
         components_df_index = components_df.copy()
@@ -108,8 +107,12 @@ class meta():
         meta_features, las, components, performances = [], [], [], []
 
         for la in [5, 10, 25, 50]:
-            result = pd.read_csv('../result/result-' + self.metric + '-'.join([self.suffix, str(la), self.grid_mode, str(self.grid_size), 'GAN', str(self.gan_specific)]))
+            result = pd.read_csv('../result/result-' + self.metric + '-'.join([self.suffix, str(la), self.grid_mode, str(self.grid_size), 'GAN', str(self.gan_specific)]) + '.csv')
             result.rename(columns={'Unnamed: 0': 'Components'}, inplace=True)
+
+            # remove dataset of testing task
+            result.drop([self.test_dataset], axis=1, inplace=True)
+            assert self.test_dataset not in result.columns
 
             # transform result dataframe for preparation
             components_df_index = self.components_process(result)
@@ -119,6 +122,8 @@ class meta():
                     if not pd.isnull(result.iloc[i, j]) and result.columns[j] != self.test_dataset:  # set nan to 0?
                         meta_feature = np.load('../datasets/meta-features/' + 'meta-features-' + result.columns[j] + '-' + str(la) + '-1.npz', allow_pickle=True)
 
+                        # preparing training data for meta classifier
+                        # note that we only extract meta features in training set of both training & testing tasks
                         meta_features.append(meta_feature['data'])
                         las.append(la)
                         components.append(components_df_index.iloc[i, :].values)
@@ -144,17 +149,18 @@ class meta():
         train_loader = DataLoader(TensorDataset(meta_features, las, components, performances),
                                   batch_size=512, shuffle=True, drop_last=True)
 
-        # initialization
+        # initialization meta classifier
         model = meta_predictor(n_col=components.size(1),
                                n_per_col=[max(components[:, i]).item() + 1 for i in range(components.size(1))])
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
 
-        # fitting
+        # fitting meta classifier
+        print('fitting meta classifier...')
         fit(train_loader, model, optimizer)
 
         # testing
         # 1. meta-feature for testing dataset
-        meta_feature_test = np.load('datasets/meta-features/' + 'meta-features-' + self.test_dataset + '-' + str(self.test_la) + '-1.npz', allow_pickle=True)
+        meta_feature_test = np.load('../datasets/meta-features/' + 'meta-features-' + self.test_dataset + '-' + str(self.test_la) + '-1.npz', allow_pickle=True)
         meta_feature_test = meta_feature_test['data']
         meta_feature_test = np.stack([meta_feature_test for i in range(components_df_index.shape[0])])
         meta_feature_test = pd.DataFrame(meta_feature_test).fillna(0).values
@@ -174,7 +180,7 @@ class meta():
 
         # since we have already train-test all the components on each dataset,
         # we can only inquire the experiment result with no information leakage
-        result = pd.read_csv('../result/result-' + self.etric + '-'.join([self.suffix, str(la), self.grid_mode, str(self.grid_size), 'GAN', str(self.gan_specific)]))
+        result = pd.read_csv('../result/result-' + self.metric + '-'.join([self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), 'GAN', str(self.gan_specific)]) + '.csv')
         for _ in torch.argsort(-pred.squeeze()):
             pred_performance = result.loc[_.item(), self.test_dataset]
             if not pd.isnull(pred_performance):
@@ -182,15 +188,41 @@ class meta():
 
         return pred_performance
 
-run_meta = meta(metric='AUCPR',
-                suffix='',
-                grid_mode='small',
-                grid_size=10000,
-                gan_specific=False,
-                test_dataset='6_cardio',
-                test_la=5)
 
-# end2end version
+# run experiments for comparing proposed meta classifier and current SOTA methods
+for metric in ['AUCPR']:
+    # result of current SOTA models
+    result_SOTA_semi = pd.read_csv('../result/' + metric + '-SOTA-semi-supervise.csv')
+    result_SOTA_sup = pd.read_csv('../result/' + metric + '-SOTA-supervise.csv')
+    result_SOTA = result_SOTA_semi.merge(result_SOTA_sup, how='inner', on='Unnamed: 0')
+    del result_SOTA_semi, result_SOTA_sup
+
+    meta_classifier_performance = np.repeat(0, result_SOTA.shape[0])
+    for i in range(result_SOTA.shape[0]):
+        test_dataset, test_la, test_seed = ast.literal_eval(result_SOTA.iloc[i, 0])
+        print(f'Experiments on meta classifier: Dataset: {test_dataset}, la: {test_la}, seed: {test_seed}')
+
+        run_meta = meta(metric=metric,
+                        suffix='',
+                        grid_mode='small',
+                        grid_size=3000,
+                        gan_specific=False,
+                        test_dataset=test_dataset,
+                        test_la=test_la)
+
+        try:
+            metric = run_meta.meta_fit2test()
+            meta_classifier_performance[i] = metric
+        except Exception as error:
+            print(f'Something error when training meta-classifier: {error}')
+            meta_classifier_performance[i] = -1
+
+        result_SOTA['Meta'] = meta_classifier_performance
+        result_SOTA.to_csv('../result/' + metric + '-meta.csv', index=False)
+
+
+
+# end2end version (TODO)
 # result = pd.read_csv('../result/result-AUCPR-5-small-10000-GAN-True.csv')
 # result.rename(columns={'Unnamed: 0':'Components'}, inplace=True)
 # # components

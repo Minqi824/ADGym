@@ -12,19 +12,22 @@ from data_generator import DataGenerator
 from utils import Utils
 
 # most of the codes are from the ADBench (NeurIPS 2022)
+# notice that the compared SOTA models should use the same training settings in ADGym
 class RunPipeline():
     def __init__(self,
-                 suffix:str=None,
-                 mode:str='rla',
-                 parallel:str=None,
-                 generate_duplicates=False,
-                 n_samples_threshold=1000):
+                 suffix: str=None,
+                 mode: str='rla',
+                 parallel: str=None,
+                 generate_duplicates: bool=False,
+                 n_samples_lower_bound: int=1000,
+                 n_samples_upper_bound: int=3000):
         '''
         :param suffix: saved file suffix (including the model performance result and model weights)
         :param mode: rla or nla —— ratio of labeled anomalies or number of labeled anomalies
         :param parallel: unsupervise, semi-supervise or supervise, choosing to parallelly run the code
         :param generate_duplicates: whether to generate duplicated samples when sample size is too small
-        :param n_samples_threshold: threshold for generating the above duplicates, if generate_duplicates is False, then datasets with sample size smaller than n_samples_threshold will be dropped
+        :param n_samples_lower_bound: threshold for generating the above duplicates, if generate_duplicates is False, then datasets with sample size smaller than n_samples_lower_bound will be dropped
+        :param n_samples_upper_bound: threshold for downsampling input samples, considering the computational cost
         '''
 
         # utils function
@@ -34,20 +37,23 @@ class RunPipeline():
 
         # global parameters
         self.generate_duplicates = generate_duplicates
-        self.n_samples_threshold = n_samples_threshold
+        self.n_samples_lower_bound = n_samples_lower_bound
+        self.n_samples_upper_bound = n_samples_upper_bound
+
 
         # the suffix of all saved files
-        self.suffix = suffix + '_' + self.parallel
+        self.suffix = suffix + '-' + self.parallel
 
         if not os.path.exists('result'):
             os.makedirs('result')
 
         # data generator instantiation
         self.data_generator = DataGenerator(generate_duplicates=self.generate_duplicates,
-                                            n_samples_threshold=self.n_samples_threshold)
+                                            n_samples_lower_bound=self.n_samples_lower_bound,
+                                            n_samples_upper_bound=self.n_samples_upper_bound)
 
         # # ratio of labeled anomalies
-        # self.rla_list = [0.00, 0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 1.00]
+        self.rla_list = [0.05, 0.10, 0.25, 0.50]
         # number of labeled anomalies
         self.nla_list = [5, 10, 25, 50]
 
@@ -69,6 +75,7 @@ class RunPipeline():
 
             # DAGMM
             self.model_dict['DAGMM'] = DAGMM
+
         # semi-supervised algorithms
         elif self.parallel == 'semi-supervise':
             from baseline.PyOD import PYOD
@@ -110,10 +117,9 @@ class RunPipeline():
     def dataset_filter(self):
         # dataset list in the current folder
         dataset_list_org = [os.path.splitext(_)[0] for _ in os.listdir('datasets')
-                            if os.path.splitext(_)[1] == '.npz'] # classical AD datasets
+                            if os.path.splitext(_)[1] == '.npz']
 
-        dataset_list = []
-        dataset_size = []
+        dataset_list, dataset_size = [], []
         for dataset in dataset_list_org:
             add = True
             for seed in self.seed_list:
@@ -121,7 +127,7 @@ class RunPipeline():
                 self.data_generator.dataset = dataset
                 data = self.data_generator.generator(la=1.00, at_least_one_labeled=True)
 
-                if not self.generate_duplicates and len(data['y_train']) + len(data['y_test']) < self.n_samples_threshold:
+                if not self.generate_duplicates and len(data['y_train']) + len(data['y_test']) < self.n_samples_lower_bound:
                     add = False
 
                 else:
