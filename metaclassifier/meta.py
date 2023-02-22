@@ -139,10 +139,14 @@ class meta():
         # min-max scaling for meta-features
         scaler_meta_features = MinMaxScaler().fit(meta_features)
         meta_features = scaler_meta_features.transform(meta_features)
+        # min-max scaling for la
+        las = np.array(las).reshape(-1, 1)
+        scaler_las = MinMaxScaler().fit(las)
+        las = scaler_las.transform(las)
 
         # to tensor
         meta_features = torch.from_numpy(meta_features).float()
-        las = torch.tensor(las).float()
+        las = torch.from_numpy(las.squeeze()).float()
         components = torch.from_numpy(components).float()
         performances = torch.tensor(performances).float()
         # to dataloader
@@ -168,8 +172,9 @@ class meta():
         meta_feature_test = torch.from_numpy(meta_feature_test).float()
 
         # 2. number of labeled anomalies in testing dataset
-        la_test = np.repeat(self.test_la, components_df_index.shape[0])
-        la_test = torch.tensor(la_test).float()
+        la_test = np.repeat(self.test_la, components_df_index.shape[0]).reshape(-1, 1)
+        la_test = scaler_las.transform(la_test)
+        la_test = torch.from_numpy(la_test.squeeze()).float()
 
         # 3. components (predefined)
         components_test = torch.from_numpy(components_df_index.values).float()
@@ -188,8 +193,19 @@ class meta():
 
         return pred_performance
 
+
+# run_meta = meta(metric='AUCPR',
+#                 suffix='',
+#                 grid_mode='small',
+#                 grid_size=3000,
+#                 gan_specific=False,
+#                 test_dataset='44_Wilt',
+#                 test_la=50)
+#
+# perf = run_meta.meta_fit2test()
+
 # run experiments for comparing proposed meta classifier and current SOTA methods
-for metric in ['AUCPR']:
+for metric in ['AUCROC', 'AUCPR']:
     # result of current SOTA models
     result_SOTA_semi = pd.read_csv('../result/' + metric + '-SOTA-semi-supervise.csv')
     result_SOTA_sup = pd.read_csv('../result/' + metric + '-SOTA-supervise.csv')
@@ -204,7 +220,7 @@ for metric in ['AUCPR']:
         run_meta = meta(metric=metric,
                         suffix='',
                         grid_mode='small',
-                        grid_size=3000,
+                        grid_size=1000,
                         gan_specific=False,
                         test_dataset=test_dataset,
                         test_la=test_la)
