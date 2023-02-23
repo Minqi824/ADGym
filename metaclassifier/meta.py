@@ -387,5 +387,5 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
             test_dataset_previous = test_dataset
             test_seed_previous = test_seed
 
-run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
-# run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-to-end')
+# run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
+run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-to-end')

@@ -137,15 +137,14 @@ class Components():
             gyms['hidden_size_list'] = [[100, 20]]
             gyms['act_fun'] = ['Tanh', 'ReLU', 'LeakyReLU']
             gyms['dropout'] = [0.0]
-            gyms['network_initialization'] = ['default', 'xavier_uniform', 'xavier_normal',
-                                              'kaiming_uniform', 'kaiming_normal']
+            gyms['network_initialization'] = ['default']
 
             ## network training ##
             gyms['training_strategy'] = [None]
             gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation'] # ordinal
             gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
             gyms['batch_resample'] = [True, False]
-            gyms['epochs'] = [20, 50, 100]
+            gyms['epochs'] = [20]
             gyms['batch_size'] = [256]
             gyms['lr'] = [1e-2, 1e-3]
             gyms['weight_decay'] = [1e-2]
