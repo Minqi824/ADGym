@@ -64,19 +64,6 @@ class meta_predictor_end2end(nn.Module):
         g_feature = torch.mean(self.g(f_feature), dim=1)
         meta_features = self.h(g_feature)
 
-        # # meta feature
-        # meta_features = []
-        # for X, y in zip(X_list, y_list):
-        #     assert len(X.size()) == 2 and len(y.size()) == 1
-        #     X = X.unsqueeze(2)
-        #     y = y.repeat(X.size(1), 1).T.unsqueeze(2)
-        #
-        #     f_feature = torch.mean(self.f(torch.cat((X, y), dim=2)), dim=0)
-        #     g_feature = torch.mean(self.g(f_feature), dim=0)
-        #     meta_features.append(self.h(g_feature))
-        # # stack the meta-features of multiple datasets
-        # meta_features = torch.stack(meta_features)
-
         # network components' embedding
         assert components.size(1) == len(self.embeddings)
 

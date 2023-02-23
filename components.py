@@ -245,13 +245,16 @@ class Components():
 
             else:
                 X_train_resample, y_train_resample = self.utils.sampler(self.data['X_train'], self.data['y_train'], self.batch_size)
-                train_tensor = TensorDataset(torch.from_numpy(X_train_resample).float(),
-                                             torch.tensor(y_train_resample).float())
-                self.train_loader = DataLoader(train_tensor, batch_size=self.batch_size, shuffle=False, drop_last=True)
+                self.train_loader = DataLoader(TensorDataset(torch.from_numpy(X_train_resample).float(),
+                                               torch.tensor(y_train_resample).float()),
+                                               batch_size=self.batch_size, shuffle=False, drop_last=True)
         else:
-            train_tensor = TensorDataset(torch.from_numpy(self.data['X_train']).float(),
-                                         torch.tensor(self.data['y_train']).float())
-            self.train_loader = DataLoader(train_tensor, batch_size=self.batch_size, shuffle=True, drop_last=True)
+            self.train_loader = DataLoader(TensorDataset(torch.from_numpy(self.data['X_train']).float(),
+                                           torch.tensor(self.data['y_train']).float()),
+                                           batch_size=self.batch_size, shuffle=True, drop_last=True)
+
+        # training tensor
+        self.train_tensor = torch.from_numpy(self.data['X_train']).float()
 
         # testing tensor
         self.test_tensor = torch.from_numpy(self.data['X_test']).float()
@@ -452,32 +455,43 @@ class Components():
         self.model.eval()
 
         if self.network_architecture == 'FTT':
+            score_train = self.model(self.train_tensor.to(self.device), x_cat=None)
+            score_train = score_train.squeeze().cpu().numpy()
+
             score_test = self.model(self.test_tensor.to(self.device), x_cat=None)
             score_test = score_test.squeeze().cpu().numpy()
 
         elif self.loss_name == 'ordinal':
-            score_test = []
-            X_train = torch.from_numpy(self.data['X_train']).float().to(self.device)
-            X_test = self.test_tensor.to(self.device)
+            def f_score(X_test):
+                score_test = []
+                X_train = self.train_tensor.to(self.device)
 
-            for i in range(X_test.size(0)):
-                # postive and negative sample indices in the training set
-                index_a = np.random.choice(np.where(self.data['y_train']==1)[0], num, replace=True)
-                index_u = np.random.choice(np.where(self.data['y_train']==0)[0], num, replace=True)
-                X_train_a_tensor = X_train[index_a]
-                X_train_u_tensor = X_train[index_u]
+                for i in range(X_test.size(0)):
+                    # postive and negative sample indices in the training set
+                    index_a = np.random.choice(np.where(self.data['y_train'] == 1)[0], num, replace=True)
+                    index_u = np.random.choice(np.where(self.data['y_train'] == 0)[0], num, replace=True)
+                    X_train_a_tensor = X_train[index_a]
+                    X_train_u_tensor = X_train[index_u]
 
-                score_a_x = self.model(X_train_a_tensor, torch.cat(num * [X_test[i].view(1, -1)]))
-                score_x_u = self.model(torch.cat(num * [X_test[i].view(1, -1)]), X_train_u_tensor)
-                score_sub = torch.mean(score_a_x + score_x_u)
-                score_test.append(score_sub.cpu().item())
+                    score_a_x = self.model(X_train_a_tensor, torch.cat(num * [X_test[i].view(1, -1)]))
+                    score_x_u = self.model(torch.cat(num * [X_test[i].view(1, -1)]), X_train_u_tensor)
+                    score_sub = torch.mean(score_a_x + score_x_u)
+                    score_test.append(score_sub.cpu().item())
 
-            score_test = np.array(score_test)
+                score_test = np.array(score_test)
+                return score_test
+
+            score_train = f_score(X_test=self.train_tensor.to(self.device))
+            score_test = f_score(X_test=self.test_tensor.to(self.device))
 
         else:
+            score_train = self.model(self.train_tensor.to(self.device))
+            score_train = score_train.squeeze().cpu().numpy()
+
             score_test = self.model(self.test_tensor.to(self.device))
             score_test = score_test.squeeze().cpu().numpy()
 
-        metrics = self.utils.metric(y_true=self.data['y_test'], y_score=score_test, pos_label=1)
+        metrics_train = self.utils.metric(y_true=self.data['y_train'], y_score=score_train, pos_label=1)
+        metrics_test = self.utils.metric(y_true=self.data['y_test'], y_score=score_test, pos_label=1)
 
-        return metrics
+        return metrics_train, metrics_test

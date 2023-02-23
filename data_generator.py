@@ -14,8 +14,8 @@ class DataGenerator():
                  dataset: str=None,
                  test_size: float=0.3,
                  generate_duplicates=False,
-                 n_samples_lower_bound=None,
-                 n_samples_upper_bound=None,
+                 n_samples_lower_bound=1000,
+                 n_samples_upper_bound=3000,
                  verbose=False):
         '''
         :param seed: seed for reproducible results

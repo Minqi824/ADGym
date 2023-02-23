@@ -16,6 +16,7 @@ from components import Components
 # e.g., Euclidean distance or reconstruction errors, which is always positive
 
 # batch normalization
+# add other network architectures that may outperform the tree-based methods, e.g., MoE or TabNet
 
 
 class ADGym():
@@ -145,8 +146,10 @@ class ADGym():
         gyms = self.generate_gyms()
 
         # save results
-        df_results_AUCROC = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
-        df_results_AUCPR = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
+        df_results_AUCROC_train = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
+        df_results_AUCROC_test = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
+        df_results_AUCPR_train = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
+        df_results_AUCPR_test = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
         df_results_runtime = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
 
         # create save path
@@ -158,7 +161,7 @@ class ADGym():
 
         for dataset in dataset_list:
             for j, gym in tqdm(enumerate(gyms)):
-                aucroc_list, aucpr_list, time_list = [], [], []
+                aucroc_train_list, aucroc_test_list, aucpr_train_list, aucpr_test_list, time_list = [], [], [], [], []
                 for seed in self.seed_list:
                     # data generator instantiation
                     self.data_generator.dataset = dataset
@@ -199,15 +202,20 @@ class ADGym():
                         end_time = time.time()
 
                         # predicting
-                        metrics = com.f_predict_score()
-                        aucroc_list.append(metrics['aucroc'])
-                        aucpr_list.append(metrics['aucpr'])
+                        metrics_train, metrics_test = com.f_predict_score()
+
+                        aucroc_train_list.append(metrics_train['aucroc'])
+                        aucroc_test_list.append(metrics_test['aucroc'])
+                        aucpr_train_list.append(metrics_train['aucpr'])
+                        aucpr_test_list.append(metrics_test['aucpr'])
                         time_list.append(end_time - start_time)
 
                     except Exception as error:
                         print(f'Dataset: {dataset}, Current combination: {gym}, training failure. Error: {error}')
-                        aucroc_list.append(None)
-                        aucpr_list.append(None)
+                        aucroc_train_list.append(None)
+                        aucroc_test_list.append(None)
+                        aucpr_train_list.append(None)
+                        aucpr_test_list.append(None)
                         time_list.append(None)
                         pass
                         continue
@@ -217,17 +225,23 @@ class ADGym():
                     gc.collect()
 
                 # save results
-                if all([_ is not None for _ in aucroc_list]) and all([_ is not None for _ in aucpr_list]) and all([_ is not None for _ in time_list]):
-                    df_results_AUCROC.loc[str(gym), dataset] = np.mean(aucroc_list)
-                    df_results_AUCPR.loc[str(gym), dataset] = np.mean(aucpr_list)
+                if all([all([_ is not None for _ in aucroc_train_list]), all([_ is not None for _ in aucroc_test_list]),
+                        all([_ is not None for _ in aucpr_train_list]), all([_ is not None for _ in aucpr_test_list]),
+                        all([_ is not None for _ in time_list])]):
+                    df_results_AUCROC_train.loc[str(gym), dataset] = np.mean(aucroc_train_list)
+                    df_results_AUCROC_test.loc[str(gym), dataset] = np.mean(aucroc_test_list)
+                    df_results_AUCPR_train.loc[str(gym), dataset] = np.mean(aucpr_train_list)
+                    df_results_AUCPR_test.loc[str(gym), dataset] = np.mean(aucpr_test_list)
                     df_results_runtime.loc[str(gym), dataset] = np.mean(time_list)
                     print(f'Dataset: {dataset}, Current combination: {gym}, training sucessfully.')
                 else:
                     print(f'Dataset: {dataset}, Current combination: {gym}, training failure.')
 
                 # output
-                df_results_AUCROC.to_csv(os.path.join('result', 'result-AUCROC' + self.suffix + '.csv'), index=True)
-                df_results_AUCPR.to_csv(os.path.join('result', 'result-AUCPR' + self.suffix + '.csv'), index=True)
+                df_results_AUCROC_train.to_csv(os.path.join('result', 'result-AUCROC-train' + self.suffix + '.csv'), index=True)
+                df_results_AUCROC_test.to_csv(os.path.join('result', 'result-AUCROC-test' + self.suffix + '.csv'), index=True)
+                df_results_AUCPR_train.to_csv(os.path.join('result', 'result-AUCPR-train' + self.suffix + '.csv'), index=True)
+                df_results_AUCPR_test.to_csv(os.path.join('result', 'result-AUCPR-test' + self.suffix + '.csv'), index=True)
                 df_results_runtime.to_csv(os.path.join('result', 'result-runtime' + self.suffix + '.csv'), index=True)
 
 adgym = ADGym(la=5, grid_mode='small', grid_size=1000, gan_specific=False)

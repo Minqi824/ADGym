@@ -26,8 +26,12 @@ Each part of the pipeline can be instantiated by multiple components (core compo
 ||Weight Decay|[1e-2, 1e-4]|
 
 ## Quick Start with ADGym
+run the meta.py file in the metaclassifier fold
 ```python
-to do...
+# two-stage meta classifier, using meta-feature extractor in MetaOD
+run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
+# end-to-end meta classifier
+run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-to-end')
 ```
 
 ## Python Package Requirements
@@ -50,3 +54,5 @@ to do...
 - 2023.01.04: revise the labeled anomalies to the number (instead of ratio) of labeled anomalies
 - 2023.02.20: restart ADGym
 - 2023.02.20: add two baselines: random selection and model selection based on the partially labeled data
+- 2023.02.22: provide both two-stage and end-to-end versions of meta predictor
+- 2023.02.23: improve the training efficiency in meta classifier
