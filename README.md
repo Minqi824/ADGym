@@ -38,10 +38,13 @@ run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-
 - iteration_utilities==0.11.0
 - metaod==0.0.6
 - scikit-learn==0.23.2
-- install imbalanced-learn==0.7.0
+- imbalanced-learn==0.7.0
 - torch==1.9.0
 - tensorflow==2.8.0
 - tabgan==1.2.1
+- rtdl==0.0.13
+- protobuf==3.20.*
+- numpy==1.21.6
 
 ## Update Logs
 - 2022.11.17: run the experiments of current component combinations
