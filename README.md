@@ -26,7 +26,23 @@ Each part of the pipeline can be instantiated by multiple components (core compo
 ||Weight Decay|[1e-2, 1e-4]|
 
 ## Quick Start with ADGym
-run the meta.py file in the metaclassifier fold
+
+- For the experimental results of all the components, open the [test_ADGym.py](test_ADGym.py) and run:
+```python
+adgym = ADGym(la=5, grid_mode='small', grid_size=1000, gan_specific=False, suffix='test')
+adgym.run()
+```
+
+- For the experimental results of all the current SOTA semi- or supervised models, open the [test_SOTA.py](test_SOTA.py) and run:
+```python
+pipeline = RunPipeline(suffix='SOTA', parallel='semi-supervise', mode='nla')
+pipeline.run()
+
+pipeline = RunPipeline(suffix='SOTA', parallel='supervise', mode='nla')
+pipeline.run()
+```
+
+- For the experimental results of meta classifier (and its counterpart baseline), open the [meta.py](metaclassifier/meta.py) and run:
 ```python
 # two-stage meta classifier, using meta-feature extractor in MetaOD
 run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
