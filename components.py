@@ -144,7 +144,7 @@ class Components():
             gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation'] # ordinal
             gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
             gyms['batch_resample'] = [True, False]
-            gyms['epochs'] = [20]
+            gyms['epochs'] = [50]
             gyms['batch_size'] = [256]
             gyms['lr'] = [1e-2, 1e-3]
             gyms['weight_decay'] = [1e-2]

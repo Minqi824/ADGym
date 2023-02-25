@@ -5,7 +5,7 @@ from tqdm import tqdm
 from data_generator import DataGenerator
 
 
-def fit(train_loader, model, optimizer, epochs: int=10):
+def fit(train_loader, model, optimizer, epochs: int=20):
     criterion = nn.MSELoss()
 
     loss_epoch = []

@@ -8,6 +8,7 @@ import time
 import gc
 from keras import backend as K
 from data_generator import DataGenerator
+from utils import Utils
 from components import Components
 
 # TODO
@@ -20,7 +21,7 @@ from components import Components
 
 
 class ADGym():
-    def __init__(self, la=5, suffix='', grid_mode='small', grid_size=100, gan_specific=False):
+    def __init__(self, la=5, suffix='', grid_mode='small', grid_size=100, gan_specific=False, dataset_list=None):
         '''
         :param la: number of labeled anomalies
         :param suffix: suffix for save experimental results
@@ -30,11 +31,14 @@ class ADGym():
         '''
         self.la = la
         self.suffix = '-'.join([suffix, str(la), grid_mode, str(grid_size), 'GAN', str(gan_specific)])
-        self.seed_list = list(np.arange(1) + 1)
+        self.seed_list = list(np.arange(3) + 1)
 
         self.grid_mode = grid_mode
         self.grid_size = grid_size
         self.gan_specific = gan_specific
+
+        self.dataset_list = dataset_list
+        self.utils = Utils()
 
         if isinstance(la, int):
             self.mode = 'nla'
@@ -59,7 +63,12 @@ class ADGym():
                 self.data_generator.dataset = dataset
                 self.data_generator.seed = seed
 
-                data = self.data_generator.generator(la=1.00, at_least_one_labeled=True)
+                try:
+                    data = self.data_generator.generator(la=1.00, at_least_one_labeled=True)
+                except:
+                    add = False
+                    pass
+                    continue
 
                 if not self.generate_duplicates and \
                         len(data['y_train']) + len(data['y_test']) < self.n_samples_lower_bound:
@@ -87,6 +96,7 @@ class ADGym():
         return dataset_list
 
     def generate_gyms(self):
+        self.utils.set_seed(42)
         # generate combinations of different components
         com = Components(gan_specific=self.gan_specific)
         print(com.gym(mode=self.grid_mode)) # see the entire components in the current grid mode (either large or small)
@@ -137,8 +147,13 @@ class ADGym():
         return gyms
 
     def run(self):
-        # dataset list
-        dataset_list = [os.path.splitext(_)[0] for _ in os.listdir('datasets') if os.path.splitext(_)[1] == '.npz']
+        if self.dataset_list is None:
+            # dataset list
+            dataset_list = [os.path.splitext(_)[0] for _ in os.listdir('datasets') if os.path.splitext(_)[1] == '.npz']
+        else:
+            dataset_list = self.dataset_list
+
+
         # filtering dataset
         dataset_list = self.dataset_filter(dataset_list)
 
@@ -160,13 +175,11 @@ class ADGym():
             os.makedirs('result')
 
         for dataset in dataset_list:
-            for j, gym in tqdm(enumerate(gyms)):
-                aucroc_train_list, aucroc_test_list, aucpr_train_list, aucpr_test_list, time_list = [], [], [], [], []
-                for seed in self.seed_list:
-                    # data generator instantiation
-                    self.data_generator.dataset = dataset
-                    self.data_generator.seed = seed
-
+            for seed in self.seed_list:
+                # data generator instantiation
+                self.data_generator.dataset = dataset
+                self.data_generator.seed = seed
+                for j, gym in tqdm(enumerate(gyms)):
                     # generate data and save meta-features
                     if j == 0:
                         data = self.data_generator.generator(la=self.la, meta=True)
@@ -200,23 +213,14 @@ class ADGym():
                         start_time = time.time()
                         com.f_train()
                         end_time = time.time()
+                        fit_time = end_time - start_time
 
                         # predicting
                         metrics_train, metrics_test = com.f_predict_score()
 
-                        aucroc_train_list.append(metrics_train['aucroc'])
-                        aucroc_test_list.append(metrics_test['aucroc'])
-                        aucpr_train_list.append(metrics_train['aucpr'])
-                        aucpr_test_list.append(metrics_test['aucpr'])
-                        time_list.append(end_time - start_time)
-
                     except Exception as error:
                         print(f'Dataset: {dataset}, Current combination: {gym}, training failure. Error: {error}')
-                        aucroc_train_list.append(None)
-                        aucroc_test_list.append(None)
-                        aucpr_train_list.append(None)
-                        aucpr_test_list.append(None)
-                        time_list.append(None)
+                        metrics_train, metrics_test, fit_time = None, None, None
                         pass
                         continue
 
@@ -224,25 +228,23 @@ class ADGym():
                     del com
                     gc.collect()
 
-                # save results
-                if all([all([_ is not None for _ in aucroc_train_list]), all([_ is not None for _ in aucroc_test_list]),
-                        all([_ is not None for _ in aucpr_train_list]), all([_ is not None for _ in aucpr_test_list]),
-                        all([_ is not None for _ in time_list])]):
-                    df_results_AUCROC_train.loc[str(gym), dataset] = np.mean(aucroc_train_list)
-                    df_results_AUCROC_test.loc[str(gym), dataset] = np.mean(aucroc_test_list)
-                    df_results_AUCPR_train.loc[str(gym), dataset] = np.mean(aucpr_train_list)
-                    df_results_AUCPR_test.loc[str(gym), dataset] = np.mean(aucpr_test_list)
-                    df_results_runtime.loc[str(gym), dataset] = np.mean(time_list)
-                    print(f'Dataset: {dataset}, Current combination: {gym}, training sucessfully.')
-                else:
-                    print(f'Dataset: {dataset}, Current combination: {gym}, training failure.')
+                    # save results
+                    if metrics_train is not None and metrics_test is not None and fit_time is not None:
+                        df_results_AUCROC_train.loc[str(gym), dataset] = metrics_train['aucroc']
+                        df_results_AUCROC_test.loc[str(gym), dataset] = metrics_test['aucroc']
+                        df_results_AUCPR_train.loc[str(gym), dataset] = metrics_train['aucpr']
+                        df_results_AUCPR_test.loc[str(gym), dataset] = metrics_test['aucpr']
+                        df_results_runtime.loc[str(gym), dataset] = fit_time
+                        print(f'Dataset: {dataset}, Current combination: {gym}, training sucessfully.')
+                    else:
+                        print(f'Dataset: {dataset}, Current combination: {gym}, training failure.')
 
-                # output
-                df_results_AUCROC_train.to_csv(os.path.join('result', 'result-AUCROC-train' + self.suffix + '.csv'), index=True)
-                df_results_AUCROC_test.to_csv(os.path.join('result', 'result-AUCROC-test' + self.suffix + '.csv'), index=True)
-                df_results_AUCPR_train.to_csv(os.path.join('result', 'result-AUCPR-train' + self.suffix + '.csv'), index=True)
-                df_results_AUCPR_test.to_csv(os.path.join('result', 'result-AUCPR-test' + self.suffix + '.csv'), index=True)
-                df_results_runtime.to_csv(os.path.join('result', 'result-runtime' + self.suffix + '.csv'), index=True)
+                    # output
+                    df_results_AUCROC_train.to_csv(os.path.join('result', 'result-AUCROC-train-' + self.suffix + '-' + str(seed) + '.csv'), index=True)
+                    df_results_AUCROC_test.to_csv(os.path.join('result', 'result-AUCROC-test-' + self.suffix + '-' + str(seed) + '.csv'), index=True)
+                    df_results_AUCPR_train.to_csv(os.path.join('result', 'result-AUCPR-train-' + self.suffix + '-' + str(seed) + '.csv'), index=True)
+                    df_results_AUCPR_test.to_csv(os.path.join('result', 'result-AUCPR-test-' + self.suffix + '-' + str(seed) + '.csv'), index=True)
+                    df_results_runtime.to_csv(os.path.join('result', 'result-runtime-' + self.suffix + '-' + str(seed) + '.csv'), index=True)
 
-adgym = ADGym(la=5, grid_mode='small', grid_size=1000, gan_specific=False)
+adgym = ADGym(suffix='formal', la=5, grid_mode='small', grid_size=10, gan_specific=False)
 adgym.run()

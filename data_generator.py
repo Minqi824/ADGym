@@ -118,6 +118,7 @@ class DataGenerator():
         y_train[idx_labeled_anomaly] = 1
 
         # generate meta-feature if necessary
+        # meta features could be different in different seeds
         if meta:
             meta_features, _ = generate_meta_features(X_train)
         else:

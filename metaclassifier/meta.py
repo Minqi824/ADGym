@@ -139,7 +139,8 @@ class meta():
         # fillna in extracted meta-features
         meta_features = pd.DataFrame(meta_features).fillna(0).values
         # min-max scaling for meta-features
-        self.scaler_meta_features = MinMaxScaler().fit(meta_features)
+        self.scaler_meta_features = MinMaxScaler(clip=True).fit(meta_features)
+        # self.scaler_meta_features = MinMaxScaler(clip=False).fit(meta_features)
         meta_features = self.scaler_meta_features.transform(meta_features)
         # min-max scaling for la
         las = np.array(las).reshape(-1, 1)
@@ -278,15 +279,17 @@ class meta():
 
 # demo for debugging
 def run_demo():
-    run_meta = meta(metric='AUCPR',
+    run_meta = meta(seed=1,
+                    metric='AUCPR',
                     suffix='',
                     grid_mode='small',
-                    grid_size=3000,
+                    grid_size=1000,
                     gan_specific=False,
-                    test_dataset='44_Wilt',
-                    test_la=50)
+                    test_dataset='44_Wilt')
 
-    perf = run_meta.meta_fit2test()
+    clf = run_meta.meta_fit()
+    clf.test_la = 10
+    perf = clf.meta_predict()
     print(perf)
 
 # experiments for two-stage or end-to-end version of meta classifer
@@ -387,5 +390,7 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
             test_dataset_previous = test_dataset
             test_seed_previous = test_seed
 
-# run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
-run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-to-end')
+run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
+# run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-to-end')
+
+# run_demo()

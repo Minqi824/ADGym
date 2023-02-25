@@ -58,7 +58,7 @@ class RunPipeline():
         self.nla_list = [5, 10, 25, 50]
 
         # seed list
-        self.seed_list = list(np.arange(1) + 1)
+        self.seed_list = list(np.arange(3) + 1)
 
         # model_dict (model_name: clf)
         self.model_dict = {}
@@ -125,7 +125,13 @@ class RunPipeline():
             for seed in self.seed_list:
                 self.data_generator.seed = seed
                 self.data_generator.dataset = dataset
-                data = self.data_generator.generator(la=1.00, at_least_one_labeled=True)
+
+                try:
+                    data = self.data_generator.generator(la=1.00, at_least_one_labeled=True)
+                except:
+                    add = False
+                    pass
+                    continue
 
                 if not self.generate_duplicates and len(data['y_train']) + len(data['y_test']) < self.n_samples_lower_bound:
                     add = False
