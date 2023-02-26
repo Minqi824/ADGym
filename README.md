@@ -53,7 +53,7 @@ run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-
 ## Python Package Requirements
 - iteration_utilities==0.11.0
 - metaod==0.0.6
-- scikit-learn==0.23.2
+- scikit-learn==0.24
 - imbalanced-learn==0.7.0
 - torch==1.9.0
 - tensorflow==2.8.0

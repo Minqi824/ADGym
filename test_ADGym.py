@@ -246,5 +246,5 @@ class ADGym():
                     df_results_AUCPR_test.to_csv(os.path.join('result', 'result-AUCPR-test-' + self.suffix + '-' + str(seed) + '.csv'), index=True)
                     df_results_runtime.to_csv(os.path.join('result', 'result-runtime-' + self.suffix + '-' + str(seed) + '.csv'), index=True)
 
-adgym = ADGym(suffix='formal', la=5, grid_mode='small', grid_size=10, gan_specific=False)
+adgym = ADGym(suffix='formal', la=5, grid_mode='small', grid_size=10, gan_specific=True)
 adgym.run()

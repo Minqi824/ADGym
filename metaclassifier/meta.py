@@ -99,6 +99,7 @@ class meta():
     # TODO
     # add some constraints to improve the training process of meta classifier, e.g.,
     # we can remove some unimportant components after detailed analysis
+    ############################## meta classifier of two-stage version ##############################
     def meta_fit(self):
         # set seed for reproductive results
         self.utils.set_seed(self.seed)
@@ -107,7 +108,7 @@ class meta():
 
         for la in [5, 10, 25, 50]:
             result = pd.read_csv('../result/result-' + self.metric + '-test' + '-'.join(
-                [self.suffix, str(la), self.grid_mode, str(self.grid_size), 'GAN', str(self.gan_specific)]) + '.csv')
+                [self.suffix, str(la), self.grid_mode, str(self.grid_size), 'GAN', str(self.gan_specific), str(self.seed)]) + '.csv')
             result.rename(columns={'Unnamed: 0': 'Components'}, inplace=True)
 
             # remove dataset of testing task
@@ -122,7 +123,7 @@ class meta():
                     if not pd.isnull(result.iloc[i, j]) and result.columns[j] != self.test_dataset:  # set nan to 0?
                         meta_feature = np.load(
                             '../datasets/meta-features/' + 'meta-features-' + result.columns[j] + '-' + str(
-                                la) + '-1.npz', allow_pickle=True)
+                                la) + '-' + str(self.seed) + '.npz', allow_pickle=True)
 
                         # preparing training data for meta classifier
                         # note that we only extract meta features in training set of both training & testing tasks
@@ -140,11 +141,10 @@ class meta():
         meta_features = pd.DataFrame(meta_features).fillna(0).values
         # min-max scaling for meta-features
         self.scaler_meta_features = MinMaxScaler(clip=True).fit(meta_features)
-        # self.scaler_meta_features = MinMaxScaler(clip=False).fit(meta_features)
         meta_features = self.scaler_meta_features.transform(meta_features)
         # min-max scaling for la
         las = np.array(las).reshape(-1, 1)
-        self.scaler_las = MinMaxScaler().fit(las)
+        self.scaler_las = MinMaxScaler(clip=True).fit(las)
         las = self.scaler_las.transform(las)
 
         # to tensor
@@ -159,7 +159,7 @@ class meta():
         # initialize meta classifier
         self.model = meta_predictor(n_col=components.size(1),
                                     n_per_col=[max(components[:, i]).item() + 1 for i in range(components.size(1))])
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
 
         # fitting meta classifier
         print('fitting meta classifier...')
@@ -167,10 +167,11 @@ class meta():
 
         return self
 
+    @torch.no_grad()
     def meta_predict(self):
         # 1. meta-feature for testing dataset
         meta_feature_test = np.load(
-            '../datasets/meta-features/' + 'meta-features-' + self.test_dataset + '-' + str(self.test_la) + '-1.npz',
+            '../datasets/meta-features/' + 'meta-features-' + self.test_dataset + '-' + str(self.test_la) + '-' + str(self.seed) + '.npz',
             allow_pickle=True)
         meta_feature_test = meta_feature_test['data']
         meta_feature_test = np.stack([meta_feature_test for i in range(self.components_df_index.shape[0])])
@@ -193,13 +194,44 @@ class meta():
         # we can only inquire the experiment result with no information leakage
         result = pd.read_csv('../result/result-' + self.metric + '-test' + '-'.join(
             [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), 'GAN',
-             str(self.gan_specific)]) + '.csv')
+             str(self.gan_specific), str(self.seed)]) + '.csv')
         for _ in torch.argsort(-pred.squeeze()):
             pred_performance = result.loc[_.item(), self.test_dataset]
             if not pd.isnull(pred_performance):
                 break
 
         return pred_performance
+
+    ############################## meta classifier of end-to-end version ##############################
+    # dataloader for end2end meta classifier version
+    def dataloader(self, meta_data, downsample=True, n_samples_upper_bound=100, n_features_upper_bound=100):
+        self.utils.set_seed(self.seed)
+
+        X_list, y_list, la_list, components, targets = [], [], [], [], []
+        for _ in meta_data:
+            X_train = _['X_train']
+            y_train = _['y_train']
+            if downsample:
+                if X_train.shape[0] > n_samples_upper_bound:
+                    idx = np.random.choice(np.arange(X_train.shape[0]), n_samples_upper_bound, replace=False)
+                    X_train = X_train[idx, :]
+                    y_train = y_train[idx]
+
+                if X_train.shape[1] > n_features_upper_bound:
+                    idx = np.random.choice(np.arange(X_train.shape[1]), n_features_upper_bound, replace=False)
+                    X_train = X_train[:, idx]
+
+            X_list.append(torch.from_numpy(X_train).float())
+            y_list.append(torch.from_numpy(y_train).float())
+            la_list.append(_['la'])
+            components.append(_['components'])
+            targets.append(_['performance'])
+
+        la_list = torch.tensor(la_list).unsqueeze(1)
+        components = torch.from_numpy(np.stack(components)).float()
+        targets = torch.tensor(targets).float()
+
+        return [X_list, y_list, la_list, components, targets]
 
     def meta_fit_end2end(self):
         # set seed for reproductive results
@@ -208,7 +240,7 @@ class meta():
         meta_data = []
         for la in [5, 10, 25, 50]:
             result = pd.read_csv('../result/result-' + self.metric + '-test' + '-'.join(
-                [self.suffix, str(la), self.grid_mode, str(self.grid_size), 'GAN', str(self.gan_specific)]) + '.csv')
+                [self.suffix, str(la), self.grid_mode, str(self.grid_size), 'GAN', str(self.gan_specific), str(self.seed)]) + '.csv')
             result.rename(columns={'Unnamed: 0': 'Components'}, inplace=True)
 
             # remove dataset of testing task
@@ -235,18 +267,16 @@ class meta():
                                                 'components': self.components_df_index.iloc[j, :].values,
                                                 'performance': result.iloc[j, i]})
                 if len(meta_data_batch) > 0:
-                    meta_data.append(meta_data_batch)
+                    meta_data.append(self.dataloader(meta_data_batch))
 
             # initialize meta classifier
-            self.utils.set_seed(self.seed)
             self.model = meta_predictor_end2end(n_col=self.components_df_index.shape[1],
                                                 n_per_col=[max(self.components_df_index.iloc[:, i]) + 1 for i in
                                                            range(self.components_df_index.shape[1])])
             optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
 
             # fitting meta classifier
-            fit = fit_end2end(seed=self.seed)
-            fit.fit(meta_data, self.model, optimizer)
+            fit_end2end(meta_data, self.model, optimizer)
 
             return self
 
@@ -257,25 +287,33 @@ class meta():
         test_data = self.data_generator.generator(la=self.test_la)
 
         # notice that we can only use the training set of the testing task
-        X_list_test = [torch.from_numpy(test_data['X_train']).float() for i in range(self.components_df_index.shape[0])]
-        y_list_test = [torch.from_numpy(test_data['y_train']).float() for i in range(self.components_df_index.shape[0])]
-        la_test = torch.tensor([self.test_la for i in range(self.components_df_index.shape[0])]).unsqueeze(1)
-        components_test = torch.from_numpy(self.components_df_index.values).float()
+        # X_list_test = [torch.from_numpy(test_data['X_train']).float() for i in range(self.components_df_index.shape[0])]
+        # y_list_test = [torch.from_numpy(test_data['y_train']).float() for i in range(self.components_df_index.shape[0])]
+        # la_test = torch.tensor([self.test_la for i in range(self.components_df_index.shape[0])]).unsqueeze(1)
+        # components_test = torch.from_numpy(self.components_df_index.values).float()
+        #
+        # _, _, pred = self.model(X_list_test, y_list_test, la_test, components_test)
 
-        _, _, pred = self.model(X_list_test, y_list_test, la_test, components_test)
+        preds = []
+        for i in range(self.components_df_index.shape[0]):
+            X_list_test = [torch.from_numpy(test_data['X_train']).float()]
+            y_list_test = [torch.from_numpy(test_data['y_train']).float()]
+            la_test = torch.tensor([[self.test_la]])
+            components_test = torch.from_numpy(self.components_df_index.values[i, :].reshape(1, -1)).float()
+            _, _, pred = self.model(X_list_test, y_list_test, la_test, components_test)
+            preds.append(pred.item())
 
         # since we have already train-test all the components on each dataset,
         # we can only inquire the experiment result with no information leakage
         result = pd.read_csv('../result/result-' + self.metric + '-test' + '-'.join(
             [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), 'GAN',
-             str(self.gan_specific)]) + '.csv')
+             str(self.gan_specific), str(self.seed)]) + '.csv')
         for _ in torch.argsort(-pred.squeeze()):
             pred_performance = result.loc[_.item(), self.test_dataset]
             if not pd.isnull(pred_performance):
                 break
 
         return pred_performance
-
 
 # demo for debugging
 def run_demo():
@@ -285,16 +323,23 @@ def run_demo():
                     grid_mode='small',
                     grid_size=1000,
                     gan_specific=False,
-                    test_dataset='44_Wilt')
+                    test_dataset='9_census')
 
-    clf = run_meta.meta_fit()
+    # clf = run_meta.meta_fit()
+    # clf.test_la = 10
+    # perf = clf.meta_predict()
+    # print(perf)
+
+    clf = run_meta.meta_fit_end2end()
     clf.test_la = 10
-    perf = clf.meta_predict()
+    perf = clf.meta_predict_end2end()
     print(perf)
 
 # experiments for two-stage or end-to-end version of meta classifer
 def run(suffix, grid_mode, grid_size, gan_specific, mode):
     # run experiments for comparing proposed meta classifier and current SOTA methods
+    utils = Utils()
+
     for metric in ['AUCROC', 'AUCPR']:
         # result of current SOTA models
         result_SOTA_semi = pd.read_csv('../result/' + metric + '-SOTA-semi-supervise.csv')
@@ -312,14 +357,17 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
             test_dataset, test_la, test_seed = ast.literal_eval(result_SOTA.iloc[i, 0])
             print(f'Experiments on meta classifier: Dataset: {test_dataset}, la: {test_la}, seed: {test_seed}')
 
+            # set seed for reproductive results
+            utils.set_seed(test_seed)
+
             # result of other meta baseline, including:
             # 1. rs: random selection;
             # 2. ss: selection based on the labeled anomalies in the training set of testing task
             # 3. gt: ground truth where the best model can always be selected
             result_meta_baseline_train = pd.read_csv('../result/result-' + metric + '-train' + '-'.join(
-                [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific)]) + '.csv')
+                [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific), str(test_seed)]) + '.csv')
             result_meta_baseline_test = pd.read_csv('../result/result-' + metric + '-test' + '-'.join(
-                [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific)]) + '.csv')
+                [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific), str(test_seed)]) + '.csv')
 
             # random search
             for _ in range(result_meta_baseline_train.shape[0]):
@@ -390,7 +438,7 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
             test_dataset_previous = test_dataset
             test_seed_previous = test_seed
 
-run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
+# run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
 # run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-to-end')
 
-# run_demo()
+run_demo()

@@ -14,6 +14,8 @@ from torch.utils.data import Subset, DataLoader, TensorDataset
 from utils import Utils
 import torch.nn.functional as F
 
+# TODO
+# using the validation (not training) set to select the best components for comparison
 
 # we decouple the network components from the existing literature
 class Components():
