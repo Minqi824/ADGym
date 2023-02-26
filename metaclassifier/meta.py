@@ -302,14 +302,15 @@ class meta():
             components_test = torch.from_numpy(self.components_df_index.values[i, :].reshape(1, -1)).float()
             _, _, pred = self.model(X_list_test, y_list_test, la_test, components_test)
             preds.append(pred.item())
+        preds = np.array(preds)
 
         # since we have already train-test all the components on each dataset,
         # we can only inquire the experiment result with no information leakage
         result = pd.read_csv('../result/result-' + self.metric + '-test' + '-'.join(
             [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), 'GAN',
              str(self.gan_specific), str(self.seed)]) + '.csv')
-        for _ in torch.argsort(-pred.squeeze()):
-            pred_performance = result.loc[_.item(), self.test_dataset]
+        for _ in np.argsort(-preds):
+            pred_performance = result.loc[_, self.test_dataset]
             if not pd.isnull(pred_performance):
                 break
 
@@ -404,7 +405,7 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
             try:
                 if mode == 'two-stage':
                     # retrain the meta classifier if we need to test on the new testing task
-                    if i == 0 or test_dataset != test_dataset_previous:
+                    if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
                         clf = run_meta.meta_fit()
 
                     clf.test_la = test_la
@@ -438,7 +439,9 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
             test_dataset_previous = test_dataset
             test_seed_previous = test_seed
 
-# run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
+# formal experiments
+run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
 # run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-to-end')
 
-run_demo()
+# demo experiment for debugging
+# run_demo()
