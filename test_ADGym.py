@@ -21,7 +21,8 @@ from components import Components
 
 
 class ADGym():
-    def __init__(self, la=5, suffix='', grid_mode='small', grid_size=100, gan_specific=False, dataset_list=None):
+    def __init__(self, seed_list: list=[1, 2, 3], la=5, suffix='',
+                 grid_mode='small', grid_size=100, gan_specific=False, dataset_list=None):
         '''
         :param la: number of labeled anomalies
         :param suffix: suffix for save experimental results
@@ -31,7 +32,7 @@ class ADGym():
         '''
         self.la = la
         self.suffix = '-'.join([suffix, str(la), grid_mode, str(grid_size), 'GAN', str(gan_specific)])
-        self.seed_list = list(np.arange(3) + 1)
+        self.seed_list = seed_list
 
         self.grid_mode = grid_mode
         self.grid_size = grid_size
@@ -153,29 +154,25 @@ class ADGym():
         else:
             dataset_list = self.dataset_list
 
-
         # filtering dataset
         dataset_list = self.dataset_filter(dataset_list)
-
         # generate components
         gyms = self.generate_gyms()
-
-        # save results
-        df_results_AUCROC_train = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
-        df_results_AUCROC_test = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
-        df_results_AUCPR_train = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
-        df_results_AUCPR_test = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
-        df_results_runtime = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
 
         # create save path
         if not os.path.exists('datasets/meta-features'):
             os.makedirs('datasets/meta-features')
-
         if not os.path.exists('result'):
             os.makedirs('result')
 
-        for dataset in dataset_list:
-            for seed in self.seed_list:
+        for seed in self.seed_list:
+            # save results
+            df_results_AUCROC_train = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
+            df_results_AUCROC_test = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
+            df_results_AUCPR_train = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
+            df_results_AUCPR_test = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
+            df_results_runtime = pd.DataFrame(data=None, index=[str(_) for _ in gyms], columns=dataset_list)
+            for dataset in dataset_list:
                 # data generator instantiation
                 self.data_generator.dataset = dataset
                 self.data_generator.seed = seed
@@ -186,8 +183,6 @@ class ADGym():
                         np.savez_compressed(os.path.join('datasets/meta-features', 'meta-features-' + dataset +
                                                          '-' + str(self.la) + '-' + str(seed) + '.npz'),
                                             data=data['meta_features'])
-                    else:
-                        data = self.data_generator.generator(la=self.la, meta=False)
 
                     com = Components(seed=seed,
                                      data=data,
@@ -218,6 +213,9 @@ class ADGym():
                         # predicting
                         metrics_train, metrics_test = com.f_predict_score()
 
+                        print(f'Dataset: {dataset}, Current combination: {gym}, training successfully.'
+                              f' Performance (train): {metrics_train}, Performance (test): {metrics_test}')
+
                     except Exception as error:
                         print(f'Dataset: {dataset}, Current combination: {gym}, training failure. Error: {error}')
                         metrics_train, metrics_test, fit_time = None, None, None
@@ -235,7 +233,7 @@ class ADGym():
                         df_results_AUCPR_train.loc[str(gym), dataset] = metrics_train['aucpr']
                         df_results_AUCPR_test.loc[str(gym), dataset] = metrics_test['aucpr']
                         df_results_runtime.loc[str(gym), dataset] = fit_time
-                        print(f'Dataset: {dataset}, Current combination: {gym}, training sucessfully.')
+                        print(f'Dataset: {dataset}, Current combination: {gym}, training successfully.')
                     else:
                         print(f'Dataset: {dataset}, Current combination: {gym}, training failure.')
 
@@ -246,5 +244,7 @@ class ADGym():
                     df_results_AUCPR_test.to_csv(os.path.join('result', 'result-AUCPR-test-' + self.suffix + '-' + str(seed) + '.csv'), index=True)
                     df_results_runtime.to_csv(os.path.join('result', 'result-runtime-' + self.suffix + '-' + str(seed) + '.csv'), index=True)
 
-adgym = ADGym(suffix='formal', la=5, grid_mode='small', grid_size=10, gan_specific=True)
+                del data
+
+adgym = ADGym(suffix='formal', la=25, grid_mode='small', grid_size=3, gan_specific=False)
 adgym.run()

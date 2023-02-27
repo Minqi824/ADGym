@@ -32,7 +32,7 @@ def fit(train_loader, model, optimizer, epochs=20):
         loss_epoch.append(np.mean(loss_batch))
         print(f'Epoch: {i}--Loss: {round(np.mean(loss_batch), 4)}')
 
-def fit_end2end(meta_data, model, optimizer, epochs=5):
+def fit_end2end(meta_data, model, optimizer, epochs=20):
     criterion = nn.MSELoss()
 
     loss_epoch = []

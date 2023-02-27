@@ -209,9 +209,9 @@ class RunPipeline():
 
         # experimental parameters
         if self.mode == 'nla':
-            experiment_params = list(product(dataset_list, self.nla_list, self.seed_list))
+            experiment_params = list(product(dataset_list, self.seed_list, self.nla_list))
         else:
-            experiment_params = list(product(dataset_list, self.rla_list, self.seed_list))
+            experiment_params = list(product(dataset_list, self.seed_list, self.rla_list))
 
         print(f'{len(dataset_list)} datasets, {len(self.model_dict.keys())} models')
 
@@ -222,7 +222,7 @@ class RunPipeline():
         df_time_inference = pd.DataFrame(data=None, index=experiment_params, columns=list(self.model_dict.keys()))
 
         for i, params in tqdm(enumerate(experiment_params)):
-            dataset, la, self.seed = params
+            dataset, self.seed, la = params
 
             if self.parallel == 'unsupervise' and la != 0.0:
                 continue
