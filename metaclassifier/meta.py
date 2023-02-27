@@ -358,8 +358,8 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
 
         for i in tqdm(range(result_SOTA.shape[0])):
             # extract the testing task from the SOTA model results
-            test_dataset, test_la, test_seed = ast.literal_eval(result_SOTA.iloc[i, 0])
-            print(f'Experiments on meta classifier: Dataset: {test_dataset}, la: {test_la}, seed: {test_seed}')
+            test_dataset, test_seed, test_la = ast.literal_eval(result_SOTA.iloc[i, 0])
+            print(f'Experiments on meta classifier: Dataset: {test_dataset}, seed: {test_seed}, la: {test_la}')
 
             # set seed for reproductive results
             utils.set_seed(test_seed)
@@ -443,8 +443,8 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
             test_seed_previous = test_seed
 
 # formal experiments
-# run(suffix='formal', grid_mode='small', grid_size=500, gan_specific=False, mode='two-stage')
-run(suffix='formal', grid_mode='small', grid_size=500, gan_specific=False, mode='end-to-end')
+run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
+# run(suffix='formal', grid_mode='small', grid_size=500, gan_specific=False, mode='end-to-end')
 
 # demo experiment for debugging
 # run_demo()
