@@ -66,7 +66,8 @@ class meta():
         self.utils = Utils()
         self.data_generator = DataGenerator()
 
-        self.lr = 1e-3
+        self.device = self.utils.get_device() # get device for gpu acceleration
+        self.lr = 1e-2 # learning rate for meta classifier
 
     def components_process(self, result):
         assert isinstance(result, pd.DataFrame)
@@ -151,10 +152,10 @@ class meta():
         las = self.scaler_las.transform(las)
 
         # to tensor
-        meta_features = torch.from_numpy(meta_features).float()
-        las = torch.from_numpy(las.squeeze()).float()
-        components = torch.from_numpy(components).float()
-        performances = torch.tensor(performances).float()
+        meta_features = torch.from_numpy(meta_features).float().to(self.device)
+        las = torch.from_numpy(las.squeeze()).float().to(self.device)
+        components = torch.from_numpy(components).float().to(self.device)
+        performances = torch.tensor(performances).float().to(self.device)
         # to dataloader
         train_loader = DataLoader(TensorDataset(meta_features, las, components, performances),
                                   batch_size=512, shuffle=True, drop_last=True)
@@ -162,6 +163,7 @@ class meta():
         # initialize meta classifier
         self.model = meta_predictor(n_col=components.size(1),
                                     n_per_col=[max(components[:, i]).item() + 1 for i in range(components.size(1))])
+        self.model.to(self.device)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
         # fitting meta classifier
@@ -180,18 +182,19 @@ class meta():
         meta_feature_test = np.stack([meta_feature_test for i in range(self.components_df_index.shape[0])])
         meta_feature_test = pd.DataFrame(meta_feature_test).fillna(0).values
         meta_feature_test = self.scaler_meta_features.transform(meta_feature_test)
-        meta_feature_test = torch.from_numpy(meta_feature_test).float()
+        meta_feature_test = torch.from_numpy(meta_feature_test).float().to(self.device)
 
         # 2. number of labeled anomalies in testing dataset
         la_test = np.repeat(self.test_la, self.components_df_index.shape[0]).reshape(-1, 1)
         la_test = self.scaler_las.transform(la_test)
-        la_test = torch.from_numpy(la_test.squeeze()).float()
+        la_test = torch.from_numpy(la_test.squeeze()).float().to(self.device)
 
         # 3. components (predefined)
-        components_test = torch.from_numpy(self.components_df_index.values).float()
+        components_test = torch.from_numpy(self.components_df_index.values).float().to(self.device)
 
         # predicting
         _, pred = self.model(meta_feature_test, la_test.unsqueeze(1), components_test)
+        pred = pred.cpu()
 
         # since we have already train-test all the components on each dataset,
         # we can only inquire the experiment result with no information leakage
@@ -207,7 +210,7 @@ class meta():
 
     ############################## meta classifier of end-to-end version ##############################
     # dataloader for end2end meta classifier version
-    def dataloader(self, meta_data, downsample=True, n_samples_upper_bound=500, n_features_upper_bound=100):
+    def dataloader(self, meta_data, downsample=True, n_samples_upper_bound=256, n_features_upper_bound=100):
         self.utils.set_seed(self.seed)
 
         X_list, y_list, la_list, components, targets = [], [], [], [], []
@@ -224,15 +227,15 @@ class meta():
                     idx = np.random.choice(np.arange(X_train.shape[1]), n_features_upper_bound, replace=False)
                     X_train = X_train[:, idx]
 
-            X_list.append(torch.from_numpy(X_train).float())
-            y_list.append(torch.from_numpy(y_train).float())
+            X_list.append(torch.from_numpy(X_train).float().to(self.device))
+            y_list.append(torch.from_numpy(y_train).float().to(self.device))
             la_list.append(_['la'])
             components.append(_['components'])
             targets.append(_['performance'])
 
-        la_list = torch.tensor(la_list).unsqueeze(1)
-        components = torch.from_numpy(np.stack(components)).float()
-        targets = torch.tensor(targets).float()
+        la_list = torch.tensor(la_list).unsqueeze(1).to(self.device)
+        components = torch.from_numpy(np.stack(components)).float().to(self.device)
+        targets = torch.tensor(targets).float().to(self.device)
 
         return [X_list, y_list, la_list, components, targets]
 
@@ -276,6 +279,7 @@ class meta():
             self.model = meta_predictor_end2end(n_col=self.components_df_index.shape[1],
                                                 n_per_col=[max(self.components_df_index.iloc[:, i]) + 1 for i in
                                                            range(self.components_df_index.shape[1])])
+            self.model.to(self.device)
             optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
             # fitting meta classifier
@@ -299,12 +303,12 @@ class meta():
 
         preds = []
         for i in range(self.components_df_index.shape[0]):
-            X_list_test = [torch.from_numpy(test_data['X_train']).float()]
-            y_list_test = [torch.from_numpy(test_data['y_train']).float()]
-            la_test = torch.tensor([[self.test_la]])
-            components_test = torch.from_numpy(self.components_df_index.values[i, :].reshape(1, -1)).float()
+            X_list_test = [torch.from_numpy(test_data['X_train']).float().to(self.device)]
+            y_list_test = [torch.from_numpy(test_data['y_train']).float().to(self.device)]
+            la_test = torch.tensor([[self.test_la]]).to(self.device)
+            components_test = torch.from_numpy(self.components_df_index.values[i, :].reshape(1, -1)).float().to(self.device)
             _, _, pred = self.model(X_list_test, y_list_test, la_test, components_test)
-            preds.append(pred.item())
+            preds.append(pred.cpu().item())
         preds = np.array(preds)
 
         # since we have already train-test all the components on each dataset,
@@ -410,6 +414,8 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
                     # retrain the meta classifier if we need to test on the new testing task
                     if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
                         clf = run_meta.meta_fit()
+                    else:
+                        print('Using the trained meta classifier to predict...')
 
                     clf.test_la = test_la
                     perf = clf.meta_predict()
@@ -418,6 +424,8 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
                     # retrain the meta classifier if we need to test on the new testing task
                     if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
                         clf = run_meta.meta_fit_end2end()
+                    else:
+                        print('Using the trained meta classifier to predict...')
 
                     clf.test_la = test_la
                     perf = clf.meta_predict_end2end()
@@ -443,8 +451,8 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
             test_seed_previous = test_seed
 
 # formal experiments
-run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
-# run(suffix='formal', grid_mode='small', grid_size=500, gan_specific=False, mode='end-to-end')
+# run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
+run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-to-end')
 
 # demo experiment for debugging
 # run_demo()
