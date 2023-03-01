@@ -44,7 +44,7 @@ from metaclassifier.fit import fit, fit_end2end
 
 class meta():
     def __init__(self,
-                 seed:int = 42,
+                 seed:int =42,
                  metric: str='AUCPR',
                  suffix: str='',
                  grid_mode: int='small',
@@ -119,6 +119,11 @@ class meta():
             result.drop([self.test_dataset], axis=1, inplace=True)
             assert self.test_dataset not in result.columns
 
+            # using the rank ratio as target
+            for i in range(1, result.shape[1]):
+                r = np.argsort(np.argsort(-result.iloc[:, i].fillna(0).values))
+                result.iloc[:, i] = r / result.shape[0]
+
             # transform result dataframe for preparation
             self.components_df_index = self.components_process(result)
 
@@ -156,6 +161,7 @@ class meta():
         las = torch.from_numpy(las.squeeze()).float().to(self.device)
         components = torch.from_numpy(components).float().to(self.device)
         performances = torch.tensor(performances).float().to(self.device)
+
         # to dataloader
         train_loader = DataLoader(TensorDataset(meta_features, las, components, performances),
                                   batch_size=512, shuffle=True, drop_last=True)
@@ -201,7 +207,8 @@ class meta():
         result = pd.read_csv('../result/components/result-' + self.metric + '-test-' + '-'.join(
             [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), 'GAN',
              str(self.gan_specific), str(self.seed)]) + '.csv')
-        for _ in torch.argsort(-pred.squeeze()):
+        # for _ in torch.argsort(-pred.squeeze()):
+        for _ in torch.argsort(pred.squeeze()):
             pred_performance = result.loc[_.item(), self.test_dataset]
             if not pd.isnull(pred_performance):
                 break
@@ -252,6 +259,11 @@ class meta():
             # remove dataset of testing task
             result.drop([self.test_dataset], axis=1, inplace=True)
             assert self.test_dataset not in result.columns
+
+            # using the rank ratio as target
+            for i in range(1, result.shape[1]):
+                r = np.argsort(np.argsort(-result.iloc[:, i].fillna(0).values))
+                result.iloc[:, i] = r / result.shape[0]
 
             # transform result dataframe for preparation
             self.components_df_index = self.components_process(result)
@@ -316,7 +328,8 @@ class meta():
         result = pd.read_csv('../result/components/result-' + self.metric + '-test-' + '-'.join(
             [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), 'GAN',
              str(self.gan_specific), str(self.seed)]) + '.csv')
-        for _ in np.argsort(-preds):
+        # for _ in np.argsort(-preds):
+        for _ in np.argsort(preds):
             pred_performance = result.loc[_, self.test_dataset]
             if not pd.isnull(pred_performance):
                 break
@@ -327,132 +340,134 @@ class meta():
 def run_demo():
     run_meta = meta(seed=1,
                     metric='AUCPR',
-                    suffix='',
+                    suffix='formal',
                     grid_mode='small',
                     grid_size=1000,
                     gan_specific=False,
-                    test_dataset='9_census')
+                    test_dataset='44_Wilt')
 
-    # clf = run_meta.meta_fit()
-    # clf.test_la = 10
-    # perf = clf.meta_predict()
-    # print(perf)
-
-    clf = run_meta.meta_fit_end2end()
-    clf.test_la = 10
-    perf = clf.meta_predict_end2end()
+    clf = run_meta.meta_fit()
+    clf.test_la = 25
+    perf = clf.meta_predict()
     print(perf)
 
+    # clf = run_meta.meta_fit_end2end()
+    # clf.test_la = 10
+    # perf = clf.meta_predict_end2end()
+    # print(perf)
+
 # experiments for two-stage or end-to-end version of meta classifer
-def run(suffix, grid_mode, grid_size, gan_specific, mode):
+def run(metric, suffix, grid_mode, grid_size, gan_specific, mode):
     # run experiments for comparing proposed meta classifier and current SOTA methods
     utils = Utils()
 
-    for metric in ['AUCROC', 'AUCPR']:
-        # result of current SOTA models
-        result_SOTA_semi = pd.read_csv('../result/' + metric + '-SOTA-semi-supervise.csv')
-        result_SOTA_sup = pd.read_csv('../result/' + metric + '-SOTA-supervise.csv')
-        result_SOTA = result_SOTA_semi.merge(result_SOTA_sup, how='inner', on='Unnamed: 0')
-        del result_SOTA_semi, result_SOTA_sup
+    # result of current SOTA models
+    result_SOTA_semi = pd.read_csv('../result/' + metric + '-SOTA-semi-supervise.csv')
+    result_SOTA_sup = pd.read_csv('../result/' + metric + '-SOTA-supervise.csv')
+    result_SOTA = result_SOTA_semi.merge(result_SOTA_sup, how='inner', on='Unnamed: 0')
+    del result_SOTA_semi, result_SOTA_sup
 
-        meta_baseline_rs_performance = np.repeat(0, result_SOTA.shape[0]).astype(float)
-        meta_baseline_ss_performance = np.repeat(0, result_SOTA.shape[0]).astype(float)
-        meta_baseline_gt_performance = np.repeat(0, result_SOTA.shape[0]).astype(float)
-        meta_classifier_performance = np.repeat(0, result_SOTA.shape[0]).astype(float)
+    meta_baseline_rs_performance = np.repeat(-1, result_SOTA.shape[0]).astype(float)
+    meta_baseline_ss_performance = np.repeat(-1, result_SOTA.shape[0]).astype(float)
+    meta_baseline_gt_performance = np.repeat(-1, result_SOTA.shape[0]).astype(float)
+    meta_classifier_performance = np.repeat(-1, result_SOTA.shape[0]).astype(float)
 
-        for i in tqdm(range(result_SOTA.shape[0])):
-            # extract the testing task from the SOTA model results
-            test_dataset, test_seed, test_la = ast.literal_eval(result_SOTA.iloc[i, 0])
-            print(f'Experiments on meta classifier: Dataset: {test_dataset}, seed: {test_seed}, la: {test_la}')
+    for i in tqdm(range(result_SOTA.shape[0])):
+        # extract the testing task from the SOTA model results
+        test_dataset, test_seed, test_la = ast.literal_eval(result_SOTA.iloc[i, 0])
+        print(f'Experiments on meta classifier: Dataset: {test_dataset}, seed: {test_seed}, la: {test_la}')
 
-            # set seed for reproductive results
-            utils.set_seed(test_seed)
+        # set seed for reproductive results
+        utils.set_seed(test_seed)
 
-            # result of other meta baseline, including:
-            # 1. rs: random selection;
-            # 2. ss: selection based on the labeled anomalies in the training set of testing task
-            # 3. gt: ground truth where the best model can always be selected
-            result_meta_baseline_train = pd.read_csv('../result/components/result-' + metric + '-train-' + '-'.join(
-                [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific), str(test_seed)]) + '.csv')
-            result_meta_baseline_test = pd.read_csv('../result/components/result-' + metric + '-test-' + '-'.join(
-                [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific), str(test_seed)]) + '.csv')
+        # result of other meta baseline, including:
+        # 1. rs: random selection;
+        # 2. ss: selection based on the labeled anomalies in the training set of testing task
+        # 3. gt: ground truth where the best model can always be selected
+        result_meta_baseline_train = pd.read_csv('../result/components/result-' + metric + '-train-' + '-'.join(
+            [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific), str(test_seed)]) + '.csv')
+        result_meta_baseline_test = pd.read_csv('../result/components/result-' + metric + '-test-' + '-'.join(
+            [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific), str(test_seed)]) + '.csv')
 
-            # random search
-            for _ in range(result_meta_baseline_train.shape[0]):
-                idx = np.random.choice(np.arange(result_meta_baseline_train.shape[0]), 1).item()
-                perf = result_meta_baseline_test.loc[idx, test_dataset]
-                if not pd.isnull(perf):
-                    meta_baseline_rs_performance[i] = perf; del perf
-                    break
+        # random search
+        for _ in range(result_meta_baseline_train.shape[0]):
+            idx = np.random.choice(np.arange(result_meta_baseline_train.shape[0]), 1).item()
+            perf = result_meta_baseline_test.loc[idx, test_dataset]
+            if not pd.isnull(perf):
+                meta_baseline_rs_performance[i] = perf; del perf
+                break
 
-            # select the best components based on the performance in the training set of testing task (i.e., test dataset)
-            for _ in np.argsort(-result_meta_baseline_train.loc[:, test_dataset].values):
-                perf = result_meta_baseline_test.loc[_, test_dataset]
-                if not pd.isnull(perf):
-                    meta_baseline_ss_performance[i] = perf; del perf
-                    break
+        # select the best components based on the performance in the training set of testing task (i.e., test dataset)
+        for _ in np.argsort(-result_meta_baseline_train.loc[:, test_dataset].values):
+            perf = result_meta_baseline_test.loc[_, test_dataset]
+            if not pd.isnull(perf):
+                meta_baseline_ss_performance[i] = perf; del perf
+                break
 
-            # ground truth
-            perf = np.max(result_meta_baseline_test.loc[:, test_dataset])
-            meta_baseline_gt_performance[i] = perf; del perf
+        # ground truth
+        perf = np.max(result_meta_baseline_test.loc[:, test_dataset])
+        meta_baseline_gt_performance[i] = perf; del perf
 
-            result_SOTA['Meta_baseline_rs'] = meta_baseline_rs_performance
-            result_SOTA['Meta_baseline_ss'] = meta_baseline_ss_performance
-            result_SOTA['Meta_baseline_gt'] = meta_baseline_gt_performance
+        result_SOTA['Meta_baseline_rs'] = meta_baseline_rs_performance
+        result_SOTA['Meta_baseline_ss'] = meta_baseline_ss_performance
+        result_SOTA['Meta_baseline_gt'] = meta_baseline_gt_performance
 
-            # run meta classifier
-            run_meta = meta(seed=test_seed,
-                            metric=metric,
-                            suffix=suffix,
-                            grid_mode=grid_mode,
-                            grid_size=grid_size,
-                            gan_specific=gan_specific,
-                            test_dataset=test_dataset)
+        # run meta classifier
+        run_meta = meta(seed=test_seed,
+                        metric=metric,
+                        suffix=suffix,
+                        grid_mode=grid_mode,
+                        grid_size=grid_size,
+                        gan_specific=gan_specific,
+                        test_dataset=test_dataset)
 
-            try:
-                if mode == 'two-stage':
-                    # retrain the meta classifier if we need to test on the new testing task
-                    if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
-                        clf = run_meta.meta_fit()
-                    else:
-                        print('Using the trained meta classifier to predict...')
-
-                    clf.test_la = test_la
-                    perf = clf.meta_predict()
-
-                elif mode == 'end-to-end':
-                    # retrain the meta classifier if we need to test on the new testing task
-                    if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
-                        clf = run_meta.meta_fit_end2end()
-                    else:
-                        print('Using the trained meta classifier to predict...')
-
-                    clf.test_la = test_la
-                    perf = clf.meta_predict_end2end()
-
-                else:
-                    raise NotImplementedError
-
-                meta_classifier_performance[i] = perf
-            except Exception as error:
-                print(f'Something error when training meta-classifier: {error}')
-                meta_classifier_performance[i] = -1
-
-            result_SOTA['Meta'] = meta_classifier_performance
-
+        try:
             if mode == 'two-stage':
-                result_SOTA.to_csv('../result/' + metric + '-meta-twostage.csv', index=False)
+                # retrain the meta classifier if we need to test on the new testing task
+                if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
+                    clf = run_meta.meta_fit()
+                else:
+                    print('Using the trained meta classifier to predict...')
+
+                clf.test_la = test_la
+                perf = clf.meta_predict()
+
             elif mode == 'end-to-end':
-                result_SOTA.to_csv('../result/' + metric + '-meta-end2end.csv', index=False)
+                # retrain the meta classifier if we need to test on the new testing task
+                if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
+                    clf = run_meta.meta_fit_end2end()
+                else:
+                    print('Using the trained meta classifier to predict...')
+
+                clf.test_la = test_la
+                perf = clf.meta_predict_end2end()
+
             else:
                 raise NotImplementedError
 
-            test_dataset_previous = test_dataset
-            test_seed_previous = test_seed
+            meta_classifier_performance[i] = perf
+        except Exception as error:
+            print(f'Something error when training meta-classifier: {error}')
+            meta_classifier_performance[i] = -1
+
+        result_SOTA['Meta'] = meta_classifier_performance
+
+        if mode == 'two-stage':
+            result_SOTA.to_csv('../result/' + metric + '-meta-dl-twostage.csv', index=False)
+        elif mode == 'end-to-end':
+            result_SOTA.to_csv('../result/' + metric + '-meta-dl-end2end.csv', index=False)
+        else:
+            raise NotImplementedError
+
+        test_dataset_previous = test_dataset
+        test_seed_previous = test_seed
 
 # formal experiments
-# run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
-run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-to-end')
+# run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage', metric='AUCROC')
+# run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage', metric='AUCPR')
+#
+run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-to-end', metric='AUCROC')
+# run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-to-end', metric='AUCPR')
 
 # demo experiment for debugging
 # run_demo()

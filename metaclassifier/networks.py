@@ -26,6 +26,7 @@ class meta_predictor(nn.Module):
 
         return embedding, pred
 
+
 # meta classifier via end2end learning
 class meta_predictor_end2end(nn.Module):
     def __init__(self, n_col, n_per_col, embedding_dim=3, meta_embedding_dim=32):
