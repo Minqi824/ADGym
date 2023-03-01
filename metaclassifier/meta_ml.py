@@ -23,7 +23,7 @@
 
 import time
 import os
-import sys
+import sys; sys.path.append('..')
 
 import catboost
 import pandas as pd
@@ -204,99 +204,94 @@ class meta():
         return pred_performance
 
 # experiments for two-stage or end-to-end version of meta classifer
-def run(metric, suffix, grid_mode, grid_size, gan_specific, model_name):
+def run(suffix, grid_mode, grid_size, gan_specific, model_name):
     # run experiments for comparing proposed meta classifier and current SOTA methods
     utils = Utils()
 
-    # result of current SOTA models
-    result_SOTA_semi = pd.read_csv('../result/' + metric + '-SOTA-semi-supervise.csv')
-    result_SOTA_sup = pd.read_csv('../result/' + metric + '-SOTA-supervise.csv')
-    result_SOTA = result_SOTA_semi.merge(result_SOTA_sup, how='inner', on='Unnamed: 0')
-    del result_SOTA_semi, result_SOTA_sup
+    for metric in ['AUCROC', 'AUCPR']:
+        # result of current SOTA models
+        result_SOTA_semi = pd.read_csv('../result/' + metric + '-SOTA-semi-supervise.csv')
+        result_SOTA_sup = pd.read_csv('../result/' + metric + '-SOTA-supervise.csv')
+        result_SOTA = result_SOTA_semi.merge(result_SOTA_sup, how='inner', on='Unnamed: 0')
+        del result_SOTA_semi, result_SOTA_sup
 
-    meta_baseline_rs_performance = np.repeat(-1, result_SOTA.shape[0]).astype(float)
-    meta_baseline_ss_performance = np.repeat(-1, result_SOTA.shape[0]).astype(float)
-    meta_baseline_gt_performance = np.repeat(-1, result_SOTA.shape[0]).astype(float)
-    meta_classifier_performance = np.repeat(-1, result_SOTA.shape[0]).astype(float)
+        meta_baseline_rs_performance = np.repeat(-1, result_SOTA.shape[0]).astype(float)
+        meta_baseline_ss_performance = np.repeat(-1, result_SOTA.shape[0]).astype(float)
+        meta_baseline_gt_performance = np.repeat(-1, result_SOTA.shape[0]).astype(float)
+        meta_classifier_performance = np.repeat(-1, result_SOTA.shape[0]).astype(float)
 
-    for i in tqdm(range(result_SOTA.shape[0])):
-        # extract the testing task from the SOTA model results
-        test_dataset, test_seed, test_la = ast.literal_eval(result_SOTA.iloc[i, 0])
-        print(f'Experiments on meta classifier: Dataset: {test_dataset}, seed: {test_seed}, la: {test_la}')
+        for i in tqdm(range(result_SOTA.shape[0])):
+            # extract the testing task from the SOTA model results
+            test_dataset, test_seed, test_la = ast.literal_eval(result_SOTA.iloc[i, 0])
+            print(f'Experiments on meta classifier: Dataset: {test_dataset}, seed: {test_seed}, la: {test_la}')
 
-        # set seed for reproductive results
-        utils.set_seed(test_seed)
+            # set seed for reproductive results
+            utils.set_seed(test_seed)
 
-        # result of other meta baseline, including:
-        # 1. rs: random selection;
-        # 2. ss: selection based on the labeled anomalies in the training set of testing task
-        # 3. gt: ground truth where the best model can always be selected
-        result_meta_baseline_train = pd.read_csv('../result/components/result-' + metric + '-train-' + '-'.join(
-            [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific), str(test_seed)]) + '.csv')
-        result_meta_baseline_test = pd.read_csv('../result/components/result-' + metric + '-test-' + '-'.join(
-            [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific), str(test_seed)]) + '.csv')
+            # result of other meta baseline, including:
+            # 1. rs: random selection;
+            # 2. ss: selection based on the labeled anomalies in the training set of testing task
+            # 3. gt: ground truth where the best model can always be selected
+            result_meta_baseline_train = pd.read_csv('../result/components/result-' + metric + '-train-' + '-'.join(
+                [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific), str(test_seed)]) + '.csv')
+            result_meta_baseline_test = pd.read_csv('../result/components/result-' + metric + '-test-' + '-'.join(
+                [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific), str(test_seed)]) + '.csv')
 
-        # random search
-        for _ in range(result_meta_baseline_train.shape[0]):
-            idx = np.random.choice(np.arange(result_meta_baseline_train.shape[0]), 1).item()
-            perf = result_meta_baseline_test.loc[idx, test_dataset]
-            if not pd.isnull(perf):
-                meta_baseline_rs_performance[i] = perf; del perf
-                break
+            # random search
+            for _ in range(result_meta_baseline_train.shape[0]):
+                idx = np.random.choice(np.arange(result_meta_baseline_train.shape[0]), 1).item()
+                perf = result_meta_baseline_test.loc[idx, test_dataset]
+                if not pd.isnull(perf):
+                    meta_baseline_rs_performance[i] = perf; del perf
+                    break
 
-        # select the best components based on the performance in the training set of testing task (i.e., test dataset)
-        for _ in np.argsort(-result_meta_baseline_train.loc[:, test_dataset].values):
-            perf = result_meta_baseline_test.loc[_, test_dataset]
-            if not pd.isnull(perf):
-                meta_baseline_ss_performance[i] = perf; del perf
-                break
+            # select the best components based on the performance in the training set of testing task (i.e., test dataset)
+            for _ in np.argsort(-result_meta_baseline_train.loc[:, test_dataset].values):
+                perf = result_meta_baseline_test.loc[_, test_dataset]
+                if not pd.isnull(perf):
+                    meta_baseline_ss_performance[i] = perf; del perf
+                    break
 
-        # ground truth
-        perf = np.max(result_meta_baseline_test.loc[:, test_dataset])
-        meta_baseline_gt_performance[i] = perf; del perf
+            # ground truth
+            perf = np.max(result_meta_baseline_test.loc[:, test_dataset])
+            meta_baseline_gt_performance[i] = perf; del perf
 
-        result_SOTA['Meta_baseline_rs'] = meta_baseline_rs_performance
-        result_SOTA['Meta_baseline_ss'] = meta_baseline_ss_performance
-        result_SOTA['Meta_baseline_gt'] = meta_baseline_gt_performance
+            result_SOTA['Meta_baseline_rs'] = meta_baseline_rs_performance
+            result_SOTA['Meta_baseline_ss'] = meta_baseline_ss_performance
+            result_SOTA['Meta_baseline_gt'] = meta_baseline_gt_performance
 
-        # run meta classifier
-        run_meta = meta(seed=test_seed,
-                        metric=metric,
-                        suffix=suffix,
-                        grid_mode=grid_mode,
-                        grid_size=grid_size,
-                        gan_specific=gan_specific,
-                        test_dataset=test_dataset,
-                        model_name=model_name)
+            # run meta classifier
+            run_meta = meta(seed=test_seed,
+                            metric=metric,
+                            suffix=suffix,
+                            grid_mode=grid_mode,
+                            grid_size=grid_size,
+                            gan_specific=gan_specific,
+                            test_dataset=test_dataset,
+                            model_name=model_name)
 
-        try:
-            # retrain the meta classifier if we need to test on the new testing task
-            if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
-                clf = run_meta.meta_fit()
-            else:
-                print('Using the trained meta classifier to predict...')
+            try:
+                # retrain the meta classifier if we need to test on the new testing task
+                if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
+                    clf = run_meta.meta_fit()
+                else:
+                    print('Using the trained meta classifier to predict...')
 
-            clf.test_la = test_la
-            perf = clf.meta_predict()
+                clf.test_la = test_la
+                perf = clf.meta_predict()
 
-            meta_classifier_performance[i] = perf
-        except Exception as error:
-            print(f'Something error when training meta-classifier: {error}')
-            meta_classifier_performance[i] = -1
+                meta_classifier_performance[i] = perf
+            except Exception as error:
+                print(f'Something error when training meta-classifier: {error}')
+                meta_classifier_performance[i] = -1
 
-        result_SOTA['Meta'] = meta_classifier_performance
+            result_SOTA['Meta'] = meta_classifier_performance
 
-        result_SOTA.to_csv('../result/' + metric + '-meta-ml-' + model_name + '.csv', index=False)
+            result_SOTA.to_csv('../result/' + metric + '-meta-ml-' + model_name + '.csv', index=False)
 
-        test_dataset_previous = test_dataset
-        test_seed_previous = test_seed
+            test_dataset_previous = test_dataset
+            test_seed_previous = test_seed
 
 # formal experiments
-run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, model_name='LightGBM', metric='AUCROC')
-# run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, model_name='LightGBM', metric='AUCPR')
-#
-# run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, model_name='CatBoost', metric='AUCROC')
-# run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, model_name='CatBoost', metric='AUCPR')
-
-# demo experiment for debugging
-# run_demo()
+# run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, model_name='LightGBM')
+run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, model_name='CatBoost')
