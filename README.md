@@ -42,7 +42,7 @@ pipeline = RunPipeline(suffix='SOTA', parallel='supervise', mode='nla')
 pipeline.run()
 ```
 
-- For the experimental results of meta classifier (and its counterpart baseline), open the [meta.py](metaclassifier/meta.py) and run:
+- For the experimental results of meta classifier (and its counterpart baseline), open the [meta.py](metaclassifier/meta_dl.py) and run:
 ```python
 # two-stage meta classifier, using meta-feature extractor in MetaOD
 run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
@@ -75,3 +75,6 @@ run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-
 - 2023.02.20: add two baselines: random selection and model selection based on the partially labeled data
 - 2023.02.22: provide both two-stage and end-to-end versions of meta predictor
 - 2023.02.23: improve the training efficiency in meta classifier
+- 2023.02.28: support GPU version of meta predictors and fix some bugs
+- 2023.03.01: provide ml-based meta predictor
+- 2023.03.01: using the performance rank ratio (instead of performance) as training targets

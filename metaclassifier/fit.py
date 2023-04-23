@@ -5,7 +5,7 @@ from tqdm import tqdm
 from data_generator import DataGenerator
 
 
-def fit(train_loader, model, optimizer, epochs=20):
+def fit(train_loader, model, optimizer, epochs=10):
     criterion = nn.MSELoss()
 
     loss_epoch = []
@@ -32,7 +32,7 @@ def fit(train_loader, model, optimizer, epochs=20):
         loss_epoch.append(np.mean(loss_batch))
         print(f'Epoch: {i}--Loss: {round(np.mean(loss_batch), 4)}')
 
-def fit_end2end(meta_data, model, optimizer, epochs=20):
+def fit_end2end(meta_data, model, optimizer, epochs=10):
     criterion = nn.MSELoss()
 
     loss_epoch = []
