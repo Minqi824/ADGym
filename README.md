@@ -27,13 +27,13 @@ Each part of the pipeline can be instantiated by multiple components (core compo
 
 ## Quick Start with ADGym
 
-- For the experimental results of all the components, open the [test_ADGym.py](test_ADGym.py) and run:
+- For the experimental results of all the components, open the [test_ADGym.py](gym.py) and run:
 ```python
 adgym = ADGym(la=5, grid_mode='small', grid_size=1000, gan_specific=False, suffix='test')
 adgym.run()
 ```
 
-- For the experimental results of all the current SOTA semi- or supervised models, open the [test_SOTA.py](test_SOTA.py) and run:
+- For the experimental results of all the current SOTA semi- or supervised models, open the [test_SOTA.py](sota.py) and run:
 ```python
 pipeline = RunPipeline(suffix='SOTA', parallel='semi-supervise', mode='nla')
 pipeline.run()
