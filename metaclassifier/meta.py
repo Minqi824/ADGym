@@ -66,7 +66,7 @@ class meta():
         self.utils = Utils()
         self.data_generator = DataGenerator()
 
-        self.lr = 1e-3
+        self.lr = 1e-2
 
     def components_process(self, result):
         assert isinstance(result, pd.DataFrame)
@@ -207,7 +207,7 @@ class meta():
 
     ############################## meta classifier of end-to-end version ##############################
     # dataloader for end2end meta classifier version
-    def dataloader(self, meta_data, downsample=True, n_samples_upper_bound=500, n_features_upper_bound=100):
+    def dataloader(self, meta_data, downsample=True, n_samples_upper_bound=256, n_features_upper_bound=100):
         self.utils.set_seed(self.seed)
 
         X_list, y_list, la_list, components, targets = [], [], [], [], []
@@ -321,22 +321,22 @@ class meta():
 
 # demo for debugging
 def run_demo():
-    run_meta = meta(seed=1,
-                    metric='AUCPR',
-                    suffix='',
+    run_meta = meta(seed=3,
+                    metric='AUCROC',
+                    suffix='formal',
                     grid_mode='small',
                     grid_size=1000,
                     gan_specific=False,
-                    test_dataset='9_census')
+                    test_dataset='6_cardio')
 
     # clf = run_meta.meta_fit()
     # clf.test_la = 10
     # perf = clf.meta_predict()
     # print(perf)
 
-    clf = run_meta.meta_fit_end2end()
-    clf.test_la = 10
-    perf = clf.meta_predict_end2end()
+    clf = run_meta.meta_fit()
+    clf.test_la = 50
+    perf = clf.meta_predict()
     print(perf)
 
 # experiments for two-stage or end-to-end version of meta classifer
@@ -444,7 +444,7 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
 
 # formal experiments
 run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
-# run(suffix='formal', grid_mode='small', grid_size=500, gan_specific=False, mode='end-to-end')
+# run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-to-end')
 
 # demo experiment for debugging
 # run_demo()
