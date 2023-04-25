@@ -21,8 +21,14 @@ from components import Components
 
 
 class ADGym():
-    def __init__(self, seed_list: list=[1, 2, 3], la=5, suffix='',
-                 grid_mode='small', grid_size=100, gan_specific=False, dataset_list=None):
+    def __init__(self,
+                 seed_list: list=[1, 2, 3],
+                 la=5,
+                 suffix='',
+                 grid_mode='small',
+                 grid_size=100,
+                 gan_specific=False,
+                 dataset_specific=None):
         '''
         :param la: number of labeled anomalies
         :param suffix: suffix for save experimental results
@@ -31,14 +37,17 @@ class ADGym():
         :param gan_specific: whether to specific GAN-based data augmentation method (which is time-consuming)
         '''
         self.la = la
-        self.suffix = '-'.join([suffix, str(la), grid_mode, str(grid_size), 'GAN', str(gan_specific)])
+        if dataset_specific is not None:
+            self.suffix = '-'.join([suffix, dataset_specific, str(la), grid_mode, str(grid_size), 'GAN', str(gan_specific)])
+        else:
+            self.suffix = '-'.join([suffix, str(la), grid_mode, str(grid_size), 'GAN', str(gan_specific)])
         self.seed_list = seed_list
 
         self.grid_mode = grid_mode
         self.grid_size = grid_size
         self.gan_specific = gan_specific
 
-        self.dataset_list = dataset_list
+        self.dataset_specific = dataset_specific
         self.utils = Utils()
 
         if isinstance(la, int):
@@ -111,9 +120,6 @@ class ADGym():
             for j, __ in enumerate(_):
                 gym[keys[j]] = __
 
-            if gym['layers'] != len(gym['hidden_size_list']):
-                continue
-
             # for inverse loss, we do not perform batch resampling strategy
             if gym['loss_name'] == 'inverse' and gym['batch_resample']:
                 continue
@@ -127,17 +133,12 @@ class ADGym():
                 continue
 
             # delete components of network architecture = ResNet or FTT while the activation function is not RELU
-            if gym['network_architecture'] in ['ResNet', 'FTT']:
-                if gym['act_fun'] != 'ReLU':
-                    continue
-
-            # delete FTT: hidden_size_list, drop out
-            if gym['network_architecture'] == 'FTT':
-                gym['hidden_size_list'] = None
-                gym['dropout'] = None
+            if gym['network_architecture'] in ['ResNet', 'FTT'] and gym['act_fun'] != 'ReLU':
+                continue
 
             gyms.append(gym)
 
+        print(f'The total size of grids: {len(gyms)}')
         # random selection for considering computational cost
         if len(gyms) > self.grid_size:
             idx = np.random.choice(np.arange(len(gyms)), self.grid_size, replace=False)
@@ -148,11 +149,11 @@ class ADGym():
         return gyms
 
     def run(self):
-        if self.dataset_list is None:
+        if self.dataset_specific is None or not isinstance(self.dataset_specific, str):
             # dataset list
             dataset_list = [os.path.splitext(_)[0] for _ in os.listdir('datasets') if os.path.splitext(_)[1] == '.npz']
         else:
-            dataset_list = self.dataset_list
+            dataset_list = [self.dataset_specific]
 
         # filtering dataset
         dataset_list = self.dataset_filter(dataset_list)
@@ -189,7 +190,6 @@ class ADGym():
                                      augmentation=gym['augmentation'],
                                      preprocess=gym['preprocess'],
                                      network_architecture=gym['network_architecture'],
-                                     layers=gym['layers'],
                                      hidden_size_list=gym['hidden_size_list'],
                                      act_fun=gym['act_fun'],
                                      dropout=gym['dropout'],
@@ -246,5 +246,6 @@ class ADGym():
 
                 del data
 
-adgym = ADGym(suffix='formal', la=5, grid_mode='large', grid_size=1000, gan_specific=False, seed_list=[1])
+adgym = ADGym(suffix='formal', la=20, grid_mode='large', grid_size=10000, gan_specific=False, seed_list=[1],
+              dataset_specific='40_vowels')
 adgym.run()

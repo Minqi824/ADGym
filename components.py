@@ -20,25 +20,24 @@ import torch.nn.functional as F
 # we decouple the network components from the existing literature
 class Components():
     def __init__(self,
-                 seed: int=None,
-                 data=None,
-                 augmentation: str=None,
-                 gan_specific: bool=False,
-                 preprocess: str=None,
-                 network_architecture: str=None,
-                 layers: int=None,
-                 hidden_size_list: list=None,
-                 act_fun: str=None,
-                 dropout: float=None,
-                 network_initialization: str=None,
-                 training_strategy=None,
-                 loss_name: str=None,
-                 optimizer_name: str=None,
-                 batch_resample: bool=None,
-                 epochs: int=None,
-                 batch_size: int=None,
-                 lr: float=None,
-                 weight_decay: float=None):
+                 seed: int = None,
+                 data = None,
+                 augmentation: str = None,
+                 gan_specific: bool = False,
+                 preprocess: str = None,
+                 network_architecture: str = None,
+                 hidden_size_list: list = None,
+                 act_fun: str = None,
+                 dropout: float = None,
+                 network_initialization: str = None,
+                 training_strategy = None,
+                 loss_name: str = None,
+                 optimizer_name: str = None,
+                 batch_resample: bool = None,
+                 epochs: int = None,
+                 batch_size: int = None,
+                 lr: float = None,
+                 weight_decay: float = None):
         '''
         combination pipeline: data augmentation —— data processing —— network architecture —— network training
 
@@ -51,7 +50,6 @@ class Components():
 
         **network architecture**
         :param network_architecture: neural network architectures
-        :param layers: number of hidden layers in neural network
         :param hidden_size_list: number of neurons in the hidden size
         :param act_fun: activation function (layer) in neural network
         :param dropout: dropout rate in neural network
@@ -84,7 +82,6 @@ class Components():
 
         ## network architecture ##
         self.network_architecture = network_architecture
-        self.layers = layers
         self.hidden_size_list = hidden_size_list
         self.act_fun = act_fun
         self.dropout = dropout
@@ -109,11 +106,11 @@ class Components():
             gyms['preprocess'] = ['minmax', 'normalize']
 
             ## network architecture ##
-            gyms['network_architecture'] = ['MLP', 'AE', 'ResNet', 'FTT']
-            gyms['layers'] = [1, 2, 3]
+            # gyms['network_architecture'] = ['MLP', 'AE', 'ResNet', 'FTT']
+            gyms['network_architecture'] = ['FTT']
             gyms['hidden_size_list'] = [[20], [100, 20], [100, 50, 20]]
             gyms['act_fun'] = ['Tanh', 'ReLU', 'LeakyReLU']
-            gyms['dropout'] = [0.0, 0.1, 0.3]
+            gyms['dropout'] = [0.0, 0.1, 0.2]
             gyms['network_initialization'] = ['default', 'xavier_uniform', 'xavier_normal',
                                               'kaiming_uniform', 'kaiming_normal']
 
@@ -135,7 +132,6 @@ class Components():
 
             ## network architecture ##
             gyms['network_architecture'] = ['MLP', 'AE', 'ResNet', 'FTT']
-            gyms['layers'] = [2]
             gyms['hidden_size_list'] = [[100, 20]]
             gyms['act_fun'] = ['Tanh', 'ReLU', 'LeakyReLU']
             gyms['dropout'] = [0.0]
@@ -296,12 +292,12 @@ class Components():
 
         if self.network_architecture == 'MLP':
             if self.loss_name == 'ordinal':
-                self.model = MLP_pair(layers=self.layers, input_size=input_size, hidden_size_list=self.hidden_size_list, act_fun=act, p=self.dropout)
+                self.model = MLP_pair(layers=len(self.hidden_size_list), input_size=input_size, hidden_size_list=self.hidden_size_list, act_fun=act, p=self.dropout)
             else:
-                self.model = MLP(layers=self.layers, input_size=input_size, hidden_size_list=self.hidden_size_list, act_fun=act, p=self.dropout)
+                self.model = MLP(layers=len(self.hidden_size_list), input_size=input_size, hidden_size_list=self.hidden_size_list, act_fun=act, p=self.dropout)
 
         elif self.network_architecture == 'AE':
-            self.model = AE(layers=self.layers, input_size=input_size, hidden_size_list=self.hidden_size_list, act_fun=act, p=self.dropout)
+            self.model = AE(layers=len(self.hidden_size_list), input_size=input_size, hidden_size_list=self.hidden_size_list, act_fun=act, p=self.dropout)
 
         elif self.network_architecture == 'ResNet':
             # dropout_first – the dropout rate of the first dropout layer in each Block.
@@ -314,17 +310,21 @@ class Components():
                         d_hidden=self.hidden_size_list[-1],
                         dropout_first=self.dropout,
                         dropout_second=0.0,
-                        n_blocks=self.layers,
+                        n_blocks=len(self.hidden_size_list),
                         d_out=1)
 
         elif self.network_architecture == 'FTT':
-            self.model = rtdl.FTTransformer.make_default(
+            self.model = rtdl.FTTransformer.make_baseline(
                 n_num_features=input_size,
                 cat_cardinalities=None,
                 last_layer_query_idx=[-1],  # it makes the model faster and does NOT affect its output
-                n_blocks=self.layers,
-                d_out=1,
-            )
+                n_blocks=len(self.hidden_size_list),
+                ffn_d_hidden=self.hidden_size_list[-1],
+                ffn_dropout=self.dropout,
+                d_token=8,
+                attention_dropout=0.2,
+                residual_dropout=0.0,
+                d_out=1)
 
         else:
             raise NotImplementedError

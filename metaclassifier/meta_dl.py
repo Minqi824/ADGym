@@ -44,14 +44,14 @@ from metaclassifier.fit import fit, fit_end2end
 
 class meta():
     def __init__(self,
-                 seed:int =42,
-                 metric: str='AUCPR',
-                 suffix: str='',
-                 grid_mode: int='small',
-                 grid_size: int=1000,
-                 gan_specific: bool=False,
-                 test_dataset: str=None,
-                 test_la: int=None):
+                 seed: int = 42,
+                 metric: str = 'AUCPR',
+                 suffix: str = '',
+                 grid_mode: int = 'small',
+                 grid_size: int = 1000,
+                 gan_specific: bool = False,
+                 test_dataset: str = None,
+                 test_la: int = None):
 
         self.seed = seed
         self.metric = metric
@@ -122,7 +122,7 @@ class meta():
             result.drop([self.test_dataset], axis=1, inplace=True)
             assert self.test_dataset not in result.columns
 
-            # using the rank ratio as target
+            # using the rank ratio as target (todo: reverse this training target)
             for i in range(1, result.shape[1]):
                 r = np.argsort(np.argsort(-result.iloc[:, i].fillna(0).values))
                 result.iloc[:, i] = r / result.shape[0]
