@@ -86,6 +86,19 @@ class Utils():
 
         return val_metric
 
+    def coral(self, Dt, Ds, epsilon=1e-6):
+        Cs = np.cov(Ds, rowvar=False) + np.eye(Ds.shape[1])
+        Ct = np.cov(Dt, rowvar=False) + np.eye(Dt.shape[1])
+
+        Ct_inverse_sqrt = np.power(np.linalg.inv(Ct), 0.5)
+        Ct_inverse_sqrt[np.isnan(Ct_inverse_sqrt)] = epsilon
+        Cs_sqrt = np.power(Cs, 0.5)
+        Cs_sqrt[np.isnan(Cs_sqrt)] = epsilon
+
+        Dt = np.dot(Dt, Ct_inverse_sqrt)
+        Dt = np.dot(Dt, Cs_sqrt)
+
+        return Dt
 
     # metric
     def metric(self, y_true, y_score, pos_label=1):

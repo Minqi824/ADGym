@@ -151,8 +151,9 @@ class meta():
         # fillna in extracted meta-features
         meta_features = pd.DataFrame(meta_features).fillna(0).values
         # min-max scaling for meta-features
-        self.scaler_meta_features = MinMaxScaler(clip=True).fit(meta_features)
-        meta_features = self.scaler_meta_features.transform(meta_features)
+        # self.scaler_meta_features = MinMaxScaler(clip=True).fit(meta_features)
+        # meta_features = self.scaler_meta_features.transform(meta_features)
+        self.meta_features_for_align = meta_features.copy()
         # min-max scaling for la
         las = np.array(las).reshape(-1, 1)
         self.scaler_las = MinMaxScaler(clip=True).fit(las)
@@ -211,7 +212,8 @@ class meta():
         meta_feature_test = meta_feature_test['data']
         meta_feature_test = np.stack([meta_feature_test for i in range(self.components_df_index.shape[0])])
         meta_feature_test = pd.DataFrame(meta_feature_test).fillna(0).values
-        meta_feature_test = self.scaler_meta_features.transform(meta_feature_test)
+        # meta_feature_test = self.scaler_meta_features.transform(meta_feature_test)
+        meta_feature_test = self.utils.coral(Dt=meta_feature_test, Ds=self.meta_features_for_align)
         meta_feature_test = torch.from_numpy(meta_feature_test).float().to(self.device)
 
         # 2. number of labeled anomalies in testing dataset
@@ -316,7 +318,7 @@ class meta():
                                                 n_per_col=[max(self.components_df_index.iloc[:, i]) + 1 for i in
                                                            range(self.components_df_index.shape[1])])
             self.model.to(self.device)
-            optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+            optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
             # fitting meta classifier
             fit_end2end(meta_data, self.model, optimizer)
@@ -491,8 +493,8 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
             test_seed_previous = test_seed
 
 # formal experiments
-# run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, mode='two-stage')
-run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, mode='end-to-end')
+run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, mode='two-stage')
+# run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, mode='end-to-end')
 
 # run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, mode='two-stage')
 # run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, mode='end-to-end')
