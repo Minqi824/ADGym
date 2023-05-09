@@ -491,8 +491,8 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
             test_seed_previous = test_seed
 
 # formal experiments
-run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, mode='two-stage')
-# run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-to-end')
+# run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, mode='two-stage')
+run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, mode='end-to-end')
 
 # run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, mode='two-stage')
 # run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, mode='end-to-end')

@@ -41,18 +41,36 @@ class Utils():
 
         return device
 
-    def criterion(self, y_true, y_pred, mode='pearson'):
+    def criterion(self, y_true, y_pred, mode='ranknet'):
         assert torch.is_tensor(y_true) and torch.is_tensor(y_pred)
         if mode == 'pearson':
             x = y_pred
             y = y_true
             vx = x - torch.mean(x)
             vy = y - torch.mean(y)
-            corr = torch.sum(vx * vy) / (torch.sqrt(torch.sum(vx ** 2)) * torch.sqrt(torch.sum(vy ** 2)))
+            metric = torch.sum(vx * vy) / (torch.sqrt(torch.sum(vx ** 2)) * torch.sqrt(torch.sum(vy ** 2)))
+
+        elif mode == 'ranknet':
+            n = y_pred.size(0)
+
+            assert y_true.ndim == 1 and y_pred.ndim == 1
+            y_true = y_true.unsqueeze(1)
+            y_pred = y_pred.unsqueeze(1)
+
+            mask = ~torch.eye(n, dtype=torch.bool)
+            p_ij = torch.sign(y_true - y_true.T)
+            p_ij[p_ij == -1] = 0
+            s_ij = torch.sigmoid((y_pred - y_pred.T) * 100)
+
+            p_ij = p_ij[mask].view(n, n - 1)
+            s_ij = s_ij[mask].view(n, n - 1)
+
+            metric = -F.binary_cross_entropy(s_ij, p_ij)
+
         else:
             raise NotImplementedError
 
-        return corr
+        return metric
 
     @torch.no_grad()
     def evaluate(self, model, val_loader, device):
