@@ -2,6 +2,7 @@ import torch
 from torch import nn
 
 # meta classifier by using MetaOD feature extractor
+# change the embedding unlearnable?
 class meta_predictor(nn.Module):
     def __init__(self, n_col, n_per_col, embedding_dim=3):
         super(meta_predictor, self).__init__()

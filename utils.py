@@ -41,6 +41,34 @@ class Utils():
 
         return device
 
+    def criterion(self, y_true, y_pred, mode='pearson'):
+        assert torch.is_tensor(y_true) and torch.is_tensor(y_pred)
+        if mode == 'pearson':
+            x = y_pred
+            y = y_true
+            vx = x - torch.mean(x)
+            vy = y - torch.mean(y)
+            corr = torch.sum(vx * vy) / (torch.sqrt(torch.sum(vx ** 2)) * torch.sqrt(torch.sum(vy ** 2)))
+        else:
+            raise NotImplementedError
+
+        return corr
+
+    @torch.no_grad()
+    def evaluate(self, model, val_loader, device):
+        model.eval()
+        y_pred, y_true = [], []
+        for batch in val_loader:
+            batch_meta_features, batch_la, batch_components, batch_y = [_.to(device) for _ in batch]
+            _, pred = model(batch_meta_features, batch_la.unsqueeze(1), batch_components)
+
+            y_pred.extend(pred.squeeze().cpu().tolist())
+            y_true.extend(batch_y.squeeze().cpu().tolist())
+        val_metric = self.criterion(y_true=torch.tensor(y_true), y_pred=torch.tensor(y_pred))
+
+        return val_metric
+
+
     # metric
     def metric(self, y_true, y_score, pos_label=1):
         aucroc = roc_auc_score(y_true=y_true, y_score=y_score)

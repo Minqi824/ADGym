@@ -246,6 +246,5 @@ class ADGym():
 
                 del data
 
-adgym = ADGym(suffix='formal', la=20, grid_mode='large', grid_size=10000, gan_specific=False, seed_list=[1],
-              dataset_specific='40_vowels')
+adgym = ADGym(suffix='formal', la=5, grid_mode='large', grid_size=1000, gan_specific=False, seed_list=[1])
 adgym.run()

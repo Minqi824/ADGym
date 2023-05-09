@@ -106,13 +106,13 @@ class Components():
             gyms['preprocess'] = ['minmax', 'normalize']
 
             ## network architecture ##
-            # gyms['network_architecture'] = ['MLP', 'AE', 'ResNet', 'FTT']
-            gyms['network_architecture'] = ['FTT']
+            gyms['network_architecture'] = ['MLP', 'AE', 'ResNet', 'FTT']
             gyms['hidden_size_list'] = [[20], [100, 20], [100, 50, 20]]
             gyms['act_fun'] = ['Tanh', 'ReLU', 'LeakyReLU']
             gyms['dropout'] = [0.0, 0.1, 0.2]
-            gyms['network_initialization'] = ['default', 'xavier_uniform', 'xavier_normal',
-                                              'kaiming_uniform', 'kaiming_normal']
+            # gyms['network_initialization'] = ['default', 'xavier_uniform', 'xavier_normal',
+            #                                   'kaiming_uniform', 'kaiming_normal']
+            gyms['network_initialization'] = ['default', 'xavier_normal', 'kaiming_normal']
 
             ## network training ##
             gyms['training_strategy'] = [None]

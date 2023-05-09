@@ -55,7 +55,8 @@ class RunPipeline():
         # # ratio of labeled anomalies
         self.rla_list = [0.05, 0.10, 0.25, 0.50]
         # number of labeled anomalies
-        self.nla_list = [5, 10, 25, 50]
+        # self.nla_list = [5, 10, 25, 50]
+        self.nla_list = [5]
 
         # seed list
         self.seed_list = list(np.arange(3) + 1)
@@ -99,12 +100,15 @@ class RunPipeline():
             from baseline.Supervised import supervised
             from baseline.FTTransformer.run import FTTransformer
 
-            # from sklearn
-            for _ in ['LR', 'NB', 'SVM', 'MLP', 'RF', 'LGB', 'XGB', 'CatB']:
-                self.model_dict[_] = supervised
-            # ResNet and FTTransformer for tabular data
-            for _ in ['ResNet', 'FTTransformer']:
-                self.model_dict[_] = FTTransformer
+            # # from sklearn
+            # for _ in ['LR', 'NB', 'SVM', 'MLP', 'RF', 'LGB', 'XGB', 'CatB']:
+            #     self.model_dict[_] = supervised
+            # # ResNet and FTTransformer for tabular data
+            # for _ in ['ResNet', 'FTTransformer']:
+            #     self.model_dict[_] = FTTransformer
+
+            self.model_dict = {'CatB': supervised}
+
         else:
             raise NotImplementedError
 
@@ -260,5 +264,5 @@ class RunPipeline():
                 df_time_inference.to_csv(os.path.join(os.getcwd(), 'result', 'Time-inference-' + self.suffix + '.csv'), index=True)
 
 # run the above pipeline for reproducing the results in the paper
-pipeline = RunPipeline(suffix='SOTA', parallel='semi-supervise', mode='nla')
+pipeline = RunPipeline(suffix='SOTA', parallel='supervise', mode='nla')
 pipeline.run()

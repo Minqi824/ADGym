@@ -79,3 +79,5 @@ run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-
 - 2023.03.01: provide ml-based meta predictor
 - 2023.03.01: using the performance rank ratio (instead of performance) as training targets
 - 2023.04.23: learning-to-rank + ensemble strategy
+- 2023.05.09: add two loss functions for meta predictor
+- 2023.05.09: add early-stopping mechanism for meta predictor
