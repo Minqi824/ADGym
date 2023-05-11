@@ -238,7 +238,6 @@ class meta():
         result = pd.read_csv('../result/components-' + self.grid_mode + '-' + str(self.grid_size) + '/result-' + self.metric + '-test-' + '-'.join(
             [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), 'GAN',
              str(self.gan_specific), str(self.seed)]) + '.csv')
-        # for _ in torch.argsort(-pred.squeeze()):
         for _ in torch.argsort(pred.squeeze()):
             pred_performance = result.loc[_.item(), self.test_dataset]
             if not pd.isnull(pred_performance):
@@ -485,7 +484,7 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
             result_SOTA['Meta'] = meta_classifier_performance
 
             if mode == 'two-stage':
-                result_SOTA.to_csv('../result/' + metric + '-meta-dl-twostage(ranknet).csv', index=False)
+                result_SOTA.to_csv('../result/' + metric + '-meta-dl-twostage(weighted_mse).csv', index=False)
             elif mode == 'end-to-end':
                 result_SOTA.to_csv('../result/' + metric + '-meta-dl-end2end.csv', index=False)
             else:

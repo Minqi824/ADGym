@@ -42,7 +42,7 @@ class Utils():
 
         return device
 
-    def criterion(self, y_true, y_pred, mode='ranknet'):
+    def criterion(self, y_true, y_pred, mode='weighted_mse'):
         assert torch.is_tensor(y_true) and torch.is_tensor(y_pred)
         if mode == 'pearson':
             x = y_pred
@@ -71,6 +71,24 @@ class Utils():
         elif mode == 'mse':
             criterion = nn.MSELoss()
             metric = -criterion(y_pred, y_true)
+
+        elif mode == 'weighted_mse':
+            # 定义起始值、结束值和衰减因子
+            start = 1.00
+            end = 0.01
+            decay_factor = 5
+
+            # 生成等间隔的向量
+            t = torch.linspace(0, 1, y_pred.size(0))
+            # 计算指数函数
+            exponential_decay = torch.exp(torch.log(torch.tensor(end / start)) * decay_factor * t) * start
+
+            idx_sort = torch.argsort(y_true)
+            y_pred = y_pred[idx_sort]
+            y_true = y_true[idx_sort]
+
+            metric = torch.sum((torch.pow((y_pred - y_true), 2) * exponential_decay))
+            metric = -metric
 
         else:
             raise NotImplementedError
