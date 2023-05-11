@@ -4,6 +4,7 @@ import torch
 # metric
 from sklearn.metrics import roc_auc_score, average_precision_score
 import torch.nn.functional as F
+from torch import nn
 
 class Utils():
     def __init__(self):
@@ -66,6 +67,10 @@ class Utils():
             s_ij = s_ij[mask].view(n, n - 1)
 
             metric = -F.binary_cross_entropy(s_ij, p_ij)
+
+        elif mode == 'mse':
+            criterion = nn.MSELoss()
+            metric = -criterion(y_pred, y_true)
 
         else:
             raise NotImplementedError

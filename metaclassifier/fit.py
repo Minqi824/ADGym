@@ -8,7 +8,6 @@ from utils import Utils
 utils = Utils()
 
 def fit(train_loader, model, optimizer, epochs, val_loader=None, es=False, tol:int = 5):
-    # criterion = nn.MSELoss()
     best_metric = -9999; t = 0
 
     loss_epoch = []

@@ -105,14 +105,13 @@ class meta():
     # add some constraints to improve the training process of meta classifier, e.g.,
     # we can remove some unimportant components after detailed analysis
     ############################## meta classifier of two-stage version ##############################
-    def meta_fit(self, batch_size=256, es=True, lr=1e-3):
+    def meta_fit(self, batch_size=512, es=True, lr=1e-3): # default: 512, False, 1e-2
         # set seed for reproductive results
         self.utils.set_seed(self.seed)
         # generate training data for meta predictor
         meta_features, las, components, performances = [], [], [], []
 
-        # for la in [5, 10, 25, 50]:
-        for la in [5]: #TODO
+        for la in [5, 10, 25, 50]:
             result = pd.read_csv('../result/components-' + self.grid_mode + '-' + str(self.grid_size) + '/result-' + self.metric + '-test-' +
                                  '-'.join([self.suffix, str(la), self.grid_mode, str(self.grid_size), 'GAN', str(self.gan_specific), str(self.seed)]) + '.csv')
             result.rename(columns={'Unnamed: 0': 'Components'}, inplace=True)
@@ -131,17 +130,22 @@ class meta():
 
             for i in range(result.shape[0]):
                 for j in range(1, result.shape[1]):
-                    if not pd.isnull(result.iloc[i, j]) and result.columns[j] != self.test_dataset:  # set nan to 0?
-                        meta_feature = np.load(
-                            '../datasets/meta-features/' + 'meta-features-' + result.columns[j] + '-' + str(
-                                la) + '-' + str(self.seed) + '.npz', allow_pickle=True)
+                    try:
+                        if not pd.isnull(result.iloc[i, j]) and result.columns[j] != self.test_dataset:  # set nan to 0?
+                            meta_feature = np.load(
+                                '../datasets/meta-features/' + 'meta-features-' + result.columns[j] + '-' + str(
+                                    la) + '-' + str(self.seed) + '.npz', allow_pickle=True)
 
-                        # preparing training data for meta classifier
-                        # note that we only extract meta features in training set of both training & testing tasks
-                        meta_features.append(meta_feature['data'])
-                        las.append(la)
-                        components.append(self.components_df_index.iloc[i, :].values)
-                        performances.append(result.iloc[i, j])
+                            # preparing training data for meta classifier
+                            # note that we only extract meta features in training set of both training & testing tasks
+                            meta_features.append(meta_feature['data'])
+                            las.append(la)
+                            components.append(self.components_df_index.iloc[i, :].values)
+                            performances.append(result.iloc[i, j])
+
+                    except Exception as error:
+                        print(error)
+                        print(f'No meta-features for dataset: {result.columns[j]}-la: {la}')
 
         del la
 
@@ -151,12 +155,12 @@ class meta():
         # fillna in extracted meta-features
         meta_features = pd.DataFrame(meta_features).fillna(0).values
         # min-max scaling for meta-features
-        # self.scaler_meta_features = MinMaxScaler(clip=True).fit(meta_features)
-        # meta_features = self.scaler_meta_features.transform(meta_features)
+        self.scaler_meta_features = MinMaxScaler(clip=True).fit(np.unique(meta_features, axis=0))
+        meta_features = self.scaler_meta_features.transform(meta_features)
         self.meta_features_for_align = meta_features.copy()
         # min-max scaling for la
         las = np.array(las).reshape(-1, 1)
-        self.scaler_las = MinMaxScaler(clip=True).fit(las)
+        self.scaler_las = MinMaxScaler(clip=True).fit(np.unique(las, axis=0))
         las = self.scaler_las.transform(las)
 
         # to tensor
@@ -209,11 +213,12 @@ class meta():
         meta_feature_test = np.load(
             '../datasets/meta-features/' + 'meta-features-' + self.test_dataset + '-' + str(self.test_la) + '-' + str(self.seed) + '.npz',
             allow_pickle=True)
-        meta_feature_test = meta_feature_test['data']
-        meta_feature_test = np.stack([meta_feature_test for i in range(self.components_df_index.shape[0])])
+        meta_feature_test = meta_feature_test['data'].reshape(1, -1)
         meta_feature_test = pd.DataFrame(meta_feature_test).fillna(0).values
-        # meta_feature_test = self.scaler_meta_features.transform(meta_feature_test)
-        meta_feature_test = self.utils.coral(Dt=meta_feature_test, Ds=self.meta_features_for_align)
+        meta_feature_test = self.scaler_meta_features.transform(meta_feature_test)
+        # meta_feature_test = self.utils.coral(Dt=meta_feature_test,
+        #                                      Ds=np.unique(self.meta_features_for_align, axis=0))
+        meta_feature_test = np.vstack([meta_feature_test for i in range(self.components_df_index.shape[0])])
         meta_feature_test = torch.from_numpy(meta_feature_test).float().to(self.device)
 
         # 2. number of labeled anomalies in testing dataset
@@ -387,15 +392,12 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
     # run experiments for comparing proposed meta classifier and current SOTA methods
     utils = Utils()
 
-    # for metric in ['AUCROC', 'AUCPR']:
-    for metric in ['AUCPR']: #TODO
+    for metric in ['AUCROC', 'AUCPR']:
         # result of current SOTA models
-        # result_SOTA_semi = pd.read_csv('../result/' + metric + '-SOTA-semi-supervise.csv')
-        # result_SOTA_sup = pd.read_csv('../result/' + metric + '-SOTA-supervise.csv')
-        # result_SOTA = result_SOTA_semi.merge(result_SOTA_sup, how='inner', on='Unnamed: 0')
-        # del result_SOTA_semi, result_SOTA_sup
-
-        result_SOTA = pd.read_csv('../result/AUCPR-SOTA-supervise.csv')
+        result_SOTA_semi = pd.read_csv('../result/' + metric + '-SOTA-semi-supervise.csv')
+        result_SOTA_sup = pd.read_csv('../result/' + metric + '-SOTA-supervise.csv')
+        result_SOTA = result_SOTA_semi.merge(result_SOTA_sup, how='inner', on='Unnamed: 0')
+        del result_SOTA_semi, result_SOTA_sup
 
         meta_baseline_rs_performance = np.repeat(-1, result_SOTA.shape[0]).astype(float)
         meta_baseline_ss_performance = np.repeat(-1, result_SOTA.shape[0]).astype(float)
@@ -451,39 +453,39 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
                             gan_specific=gan_specific,
                             test_dataset=test_dataset)
 
-            # try:
-            if mode == 'two-stage':
-                # retrain the meta classifier if we need to test on the new testing task
-                if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
-                    clf = run_meta.meta_fit()
+            try:
+                if mode == 'two-stage':
+                    # retrain the meta classifier if we need to test on the new testing task
+                    if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
+                        clf = run_meta.meta_fit()
+                    else:
+                        print('Using the trained meta classifier to predict...')
+
+                    clf.test_la = test_la
+                    perf = clf.meta_predict()
+
+                elif mode == 'end-to-end':
+                    # retrain the meta classifier if we need to test on the new testing task
+                    if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
+                        clf = run_meta.meta_fit_end2end()
+                    else:
+                        print('Using the trained meta classifier to predict...')
+
+                    clf.test_la = test_la
+                    perf = clf.meta_predict_end2end()
+
                 else:
-                    print('Using the trained meta classifier to predict...')
+                    raise NotImplementedError
 
-                clf.test_la = test_la
-                perf = clf.meta_predict()
-
-            elif mode == 'end-to-end':
-                # retrain the meta classifier if we need to test on the new testing task
-                if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
-                    clf = run_meta.meta_fit_end2end()
-                else:
-                    print('Using the trained meta classifier to predict...')
-
-                clf.test_la = test_la
-                perf = clf.meta_predict_end2end()
-
-            else:
-                raise NotImplementedError
-
-            meta_classifier_performance[i] = perf
-            # except Exception as error:
-            #     print(f'Something error when training meta-classifier: {error}')
-            #     meta_classifier_performance[i] = -1
+                meta_classifier_performance[i] = perf
+            except Exception as error:
+                print(f'Something error when training meta-classifier: {error}')
+                meta_classifier_performance[i] = -1
 
             result_SOTA['Meta'] = meta_classifier_performance
 
             if mode == 'two-stage':
-                result_SOTA.to_csv('../result/' + metric + '-meta-dl-twostage.csv', index=False)
+                result_SOTA.to_csv('../result/' + metric + '-meta-dl-twostage(ranknet).csv', index=False)
             elif mode == 'end-to-end':
                 result_SOTA.to_csv('../result/' + metric + '-meta-dl-end2end.csv', index=False)
             else:
