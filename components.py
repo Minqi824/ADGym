@@ -1,3 +1,5 @@
+import os
+import sys
 import numpy as np
 import pandas as pd
 import random
@@ -495,4 +497,4 @@ class Components():
         metrics_train = self.utils.metric(y_true=self.data['y_train'], y_score=score_train, pos_label=1)
         metrics_test = self.utils.metric(y_true=self.data['y_test'], y_score=score_test, pos_label=1)
 
-        return metrics_train, metrics_test
+        return (score_train, score_test), (metrics_train, metrics_test)

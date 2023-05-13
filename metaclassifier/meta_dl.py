@@ -39,8 +39,9 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from data_generator import DataGenerator
 from utils import Utils
-from metaclassifier.networks import meta_predictor, meta_predictor_end2end
-from metaclassifier.fit import fit, fit_end2end
+from metaclassifier.meta_networks import meta_predictor, meta_predictor_end2end
+from metaclassifier.meta_fit import fit, fit_end2end
+from components import Components
 
 class meta():
     def __init__(self,
@@ -50,6 +51,7 @@ class meta():
                  grid_mode: int = 'small',
                  grid_size: int = 1000,
                  gan_specific: bool = False,
+                 ensemble: bool = True,
                  test_dataset: str = None,
                  test_la: int = None):
 
@@ -59,6 +61,7 @@ class meta():
         self.grid_mode = grid_mode
         self.grid_size = grid_size
         self.gan_specific = gan_specific
+        self.ensemble = ensemble
 
         self.test_dataset = test_dataset
         self.test_la = test_la
@@ -99,7 +102,7 @@ class meta():
         for col in components_df_index.columns:
             components_df_index[col] = preprocessing.LabelEncoder().fit_transform(components_df_index[col])
 
-        return components_df_index
+        return components_list, components_df_index
 
     # TODO
     # add some constraints to improve the training process of meta classifier, e.g.,
@@ -126,7 +129,7 @@ class meta():
                 result.iloc[:, i] = r / result.shape[0]
 
             # transform result dataframe for preparation
-            self.components_df_index = self.components_process(result)
+            self.components_list, self.components_df_index = self.components_process(result)
 
             for i in range(result.shape[0]):
                 for j in range(1, result.shape[1]):
@@ -207,8 +210,7 @@ class meta():
 
         return self
 
-    @torch.no_grad()
-    def meta_predict(self):
+    def meta_predict(self, metric=None, top_k=5):
         # 1. meta-feature for testing dataset
         meta_feature_test = np.load(
             '../datasets/meta-features/' + 'meta-features-' + self.test_dataset + '-' + str(self.test_la) + '-' + str(self.seed) + '.npz',
@@ -230,18 +232,59 @@ class meta():
         components_test = torch.from_numpy(self.components_df_index.values).float().to(self.device)
 
         # predicting
-        _, pred = self.model(meta_feature_test, la_test.unsqueeze(1), components_test)
+        with torch.no_grad():
+            _, pred = self.model(meta_feature_test, la_test.unsqueeze(1), components_test)
         pred = pred.cpu()
 
-        # since we have already train-test all the components on each dataset,
-        # we can only inquire the experiment result with no information leakage
-        result = pd.read_csv('../result/components-' + self.grid_mode + '-' + str(self.grid_size) + '/result-' + self.metric + '-test-' + '-'.join(
-            [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), 'GAN',
-             str(self.gan_specific), str(self.seed)]) + '.csv')
-        for _ in torch.argsort(pred.squeeze()):
-            pred_performance = result.loc[_.item(), self.test_dataset]
-            if not pd.isnull(pred_performance):
-                break
+        # (todo) select top k components for ensembling
+        if self.ensemble:
+            # data
+            data_generator_ensemble = DataGenerator(dataset=self.test_dataset, seed=self.seed)
+            data = data_generator_ensemble.generator(la=self.test_la, meta=False)
+
+            score_ensemble = []
+            assert len(self.components_list) == pred.size(0)
+            for i, idx in enumerate(np.argsort(pred.squeeze().numpy())[:top_k]):
+                print(f'fitting {i+1}-th base model...')
+                gym = self.components_list[idx]
+                com = Components(seed=self.seed,
+                                 data=data,
+                                 augmentation=gym['augmentation'],
+                                 preprocess=gym['preprocess'],
+                                 network_architecture=gym['network_architecture'],
+                                 hidden_size_list=gym['hidden_size_list'],
+                                 act_fun=gym['act_fun'],
+                                 dropout=gym['dropout'],
+                                 network_initialization=gym['network_initialization'],
+                                 training_strategy=gym['training_strategy'],
+                                 loss_name=gym['loss_name'],
+                                 optimizer_name=gym['optimizer_name'],
+                                 batch_resample=gym['batch_resample'],
+                                 epochs=gym['epochs'],
+                                 batch_size=gym['batch_size'],
+                                 lr=gym['lr'],
+                                 weight_decay=gym['weight_decay'])
+                # fit
+                com.f_train()
+                # predict and ensemble
+                (score_train, score_test), _ = com.f_predict_score()
+                score_ensemble.append(score_test)
+
+            # evaluate (notice that the scale of predicted anomaly score could be different in base models)
+            score_ensemble = np.stack(score_ensemble).T
+            score_ensemble = np.apply_along_axis(lambda x: np.argsort(np.argsort(x)) / len(x), 0, score_ensemble)
+            score_ensemble = np.mean(score_ensemble, axis=1)
+            pred_performance = self.utils.metric(y_true=data['y_test'], y_score=score_ensemble)[metric]
+        else:
+            # since we have already train-test all the components on each dataset,
+            # we can only inquire the experiment result with no information leakage
+            result = pd.read_csv('../result/components-' + self.grid_mode + '-' + str(self.grid_size) + '/result-' + self.metric + '-test-' + '-'.join(
+                [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), 'GAN',
+                 str(self.gan_specific), str(self.seed)]) + '.csv')
+            for _ in torch.argsort(pred.squeeze()):
+                pred_performance = result.loc[_.item(), self.test_dataset]
+                if not pd.isnull(pred_performance):
+                    break
 
         return pred_performance
 
@@ -296,7 +339,7 @@ class meta():
                 result.iloc[:, i] = r / result.shape[0]
 
             # transform result dataframe for preparation
-            self.components_df_index = self.components_process(result)
+            self.components_list, self.components_df_index = self.components_process(result)
 
             # meta data batch
             for i in range(1, result.shape[1]):
@@ -358,7 +401,6 @@ class meta():
         result = pd.read_csv('../result/components-' + self.grid_mode + '-' + str(self.grid_size) + '/result-' + self.metric + '-test-' + '-'.join(
             [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), 'GAN',
              str(self.gan_specific), str(self.seed)]) + '.csv')
-        # for _ in np.argsort(-preds):
         for _ in np.argsort(preds):
             pred_performance = result.loc[_, self.test_dataset]
             if not pd.isnull(pred_performance):
@@ -452,39 +494,39 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
                             gan_specific=gan_specific,
                             test_dataset=test_dataset)
 
-            try:
-                if mode == 'two-stage':
-                    # retrain the meta classifier if we need to test on the new testing task
-                    if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
-                        clf = run_meta.meta_fit()
-                    else:
-                        print('Using the trained meta classifier to predict...')
-
-                    clf.test_la = test_la
-                    perf = clf.meta_predict()
-
-                elif mode == 'end-to-end':
-                    # retrain the meta classifier if we need to test on the new testing task
-                    if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
-                        clf = run_meta.meta_fit_end2end()
-                    else:
-                        print('Using the trained meta classifier to predict...')
-
-                    clf.test_la = test_la
-                    perf = clf.meta_predict_end2end()
-
+            # try:
+            if mode == 'two-stage':
+                # retrain the meta classifier if we need to test on the new testing task
+                if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
+                    clf = run_meta.meta_fit()
                 else:
-                    raise NotImplementedError
+                    print('Using the trained meta classifier to predict...')
 
-                meta_classifier_performance[i] = perf
-            except Exception as error:
-                print(f'Something error when training meta-classifier: {error}')
-                meta_classifier_performance[i] = -1
+                clf.test_la = test_la
+                perf = clf.meta_predict(metric=metric.lower())
+
+            elif mode == 'end-to-end':
+                # retrain the meta classifier if we need to test on the new testing task
+                if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
+                    clf = run_meta.meta_fit_end2end()
+                else:
+                    print('Using the trained meta classifier to predict...')
+
+                clf.test_la = test_la
+                perf = clf.meta_predict_end2end()
+
+            else:
+                raise NotImplementedError
+
+            meta_classifier_performance[i] = perf
+            # except Exception as error:
+            #     print(f'Something error when training meta-classifier: {error}')
+            #     meta_classifier_performance[i] = -1
 
             result_SOTA['Meta'] = meta_classifier_performance
 
             if mode == 'two-stage':
-                result_SOTA.to_csv('../result/' + metric + '-meta-dl-twostage(weighted_mse).csv', index=False)
+                result_SOTA.to_csv('../result/' + metric + '-meta-dl-twostage(ensemble_mse).csv', index=False)
             elif mode == 'end-to-end':
                 result_SOTA.to_csv('../result/' + metric + '-meta-dl-end2end.csv', index=False)
             else:

@@ -42,7 +42,7 @@ class Utils():
 
         return device
 
-    def criterion(self, y_true, y_pred, mode='weighted_mse'):
+    def criterion(self, y_true, y_pred, mode='mse'):
         assert torch.is_tensor(y_true) and torch.is_tensor(y_pred)
         if mode == 'pearson':
             x = y_pred

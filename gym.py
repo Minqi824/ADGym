@@ -211,7 +211,7 @@ class ADGym():
                         fit_time = end_time - start_time
 
                         # predicting
-                        metrics_train, metrics_test = com.f_predict_score()
+                        _, (metrics_train, metrics_test) = com.f_predict_score()
 
                         print(f'Dataset: {dataset}, Current combination: {gym}, training successfully.'
                               f' Performance (train): {metrics_train}, Performance (test): {metrics_test}')
