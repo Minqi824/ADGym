@@ -244,34 +244,47 @@ class meta():
 
             score_ensemble = []
             assert len(self.components_list) == pred.size(0)
-            for i, idx in enumerate(np.argsort(pred.squeeze().numpy())[:top_k]):
-                print(f'fitting {i+1}-th base model...')
+            count_top_k = 0
+            for i, idx in enumerate(np.argsort(pred.squeeze().numpy())):
+                print(f'fitting top {i + 1}-th base model...')
                 gym = self.components_list[idx]
-                com = Components(seed=self.seed,
-                                 data=data,
-                                 augmentation=gym['augmentation'],
-                                 preprocess=gym['preprocess'],
-                                 network_architecture=gym['network_architecture'],
-                                 hidden_size_list=gym['hidden_size_list'],
-                                 act_fun=gym['act_fun'],
-                                 dropout=gym['dropout'],
-                                 network_initialization=gym['network_initialization'],
-                                 training_strategy=gym['training_strategy'],
-                                 loss_name=gym['loss_name'],
-                                 optimizer_name=gym['optimizer_name'],
-                                 batch_resample=gym['batch_resample'],
-                                 epochs=gym['epochs'],
-                                 batch_size=gym['batch_size'],
-                                 lr=gym['lr'],
-                                 weight_decay=gym['weight_decay'])
-                # fit
-                com.f_train()
-                # predict and ensemble
-                (score_train, score_test), _ = com.f_predict_score()
-                score_ensemble.append(score_test)
+                print(f'Components: {gym}')
+                try:
+                    com = Components(seed=self.seed,
+                                     data=data,
+                                     augmentation=gym['augmentation'],
+                                     preprocess=gym['preprocess'],
+                                     network_architecture=gym['network_architecture'],
+                                     hidden_size_list=gym['hidden_size_list'],
+                                     layers=gym['layers'],
+                                     act_fun=gym['act_fun'],
+                                     dropout=gym['dropout'],
+                                     network_initialization=gym['network_initialization'],
+                                     training_strategy=gym['training_strategy'],
+                                     loss_name=gym['loss_name'],
+                                     optimizer_name=gym['optimizer_name'],
+                                     batch_resample=gym['batch_resample'],
+                                     epochs=gym['epochs'],
+                                     batch_size=gym['batch_size'],
+                                     lr=gym['lr'],
+                                     weight_decay=gym['weight_decay'])
+                    # fit
+                    com.f_train()
+                    # predict and ensemble
+                    (score_train, score_test), _ = com.f_predict_score()
+                    score_ensemble.append(score_test)
+
+                    count_top_k += 1
+                except Exception as error:
+                    print(f'Error when fitting top {i+1}-th base model')
+                    pass
+                    continue
+
+                if count_top_k >= top_k:
+                    break
 
             # evaluate (notice that the scale of predicted anomaly score could be different in base models)
-            score_ensemble = np.stack(score_ensemble).T
+            score_ensemble = np.stack(score_ensemble).T; assert score_ensemble.shape[1] == top_k
             score_ensemble = np.apply_along_axis(lambda x: np.argsort(np.argsort(x)) / len(x), 0, score_ensemble)
             score_ensemble = np.mean(score_ensemble, axis=1)
             pred_performance = self.utils.metric(y_true=data['y_test'], y_score=score_ensemble)[metric]

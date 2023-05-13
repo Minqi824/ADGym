@@ -29,6 +29,7 @@ class Components():
                  preprocess: str = None,
                  network_architecture: str = None,
                  hidden_size_list: list = None,
+                 layers: int = None,
                  act_fun: str = None,
                  dropout: float = None,
                  network_initialization: str = None,
@@ -85,6 +86,7 @@ class Components():
         ## network architecture ##
         self.network_architecture = network_architecture
         self.hidden_size_list = hidden_size_list
+        self.layers = layers
         self.act_fun = act_fun
         self.dropout = dropout
         self.network_initialization = network_initialization
@@ -301,6 +303,7 @@ class Components():
         elif self.network_architecture == 'AE':
             self.model = AE(layers=len(self.hidden_size_list), input_size=input_size, hidden_size_list=self.hidden_size_list, act_fun=act, p=self.dropout)
 
+        # todo
         elif self.network_architecture == 'ResNet':
             # dropout_first – the dropout rate of the first dropout layer in each Block.
             # dropout_second – the dropout rate of the second dropout layer in each Block.
@@ -316,17 +319,25 @@ class Components():
                         d_out=1)
 
         elif self.network_architecture == 'FTT':
-            self.model = rtdl.FTTransformer.make_baseline(
+            # self.model = rtdl.FTTransformer.make_baseline(
+            #     n_num_features=input_size,
+            #     cat_cardinalities=None,
+            #     last_layer_query_idx=[-1],  # it makes the model faster and does NOT affect its output
+            #     n_blocks=len(self.hidden_size_list),
+            #     ffn_d_hidden=self.hidden_size_list[-1],
+            #     ffn_dropout=self.dropout,
+            #     d_token=8,
+            #     attention_dropout=0.2,
+            #     residual_dropout=0.0,
+            #     d_out=1)
+
+            self.model = rtdl.FTTransformer.make_default(
                 n_num_features=input_size,
                 cat_cardinalities=None,
                 last_layer_query_idx=[-1],  # it makes the model faster and does NOT affect its output
-                n_blocks=len(self.hidden_size_list),
-                ffn_d_hidden=self.hidden_size_list[-1],
-                ffn_dropout=self.dropout,
-                d_token=8,
-                attention_dropout=0.2,
-                residual_dropout=0.0,
-                d_out=1)
+                n_blocks=self.layers,
+                d_out=1,
+            )
 
         else:
             raise NotImplementedError
