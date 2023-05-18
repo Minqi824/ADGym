@@ -42,7 +42,7 @@ class Utils():
 
         return device
 
-    def criterion(self, y_true, y_pred, mode='mse'):
+    def criterion(self, y_true, y_pred, mode='pearson'):
         assert torch.is_tensor(y_true) and torch.is_tensor(y_pred)
         if mode == 'pearson':
             x = y_pred
@@ -76,7 +76,7 @@ class Utils():
             # 定义起始值、结束值和衰减因子
             start = 1.00
             end = 0.01
-            decay_factor = 5
+            decay_factor = 1.0
 
             # 生成等间隔的向量
             t = torch.linspace(0, 1, y_pred.size(0))

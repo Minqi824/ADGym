@@ -539,7 +539,7 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
             result_SOTA['Meta'] = meta_classifier_performance
 
             if mode == 'two-stage':
-                result_SOTA.to_csv('../result/' + metric + '-meta-dl-twostage(ensemble_mse).csv', index=False)
+                result_SOTA.to_csv('../result/' + metric + '-meta-dl-twostage(ensemble_pearson).csv', index=False)
             elif mode == 'end-to-end':
                 result_SOTA.to_csv('../result/' + metric + '-meta-dl-end2end.csv', index=False)
             else:

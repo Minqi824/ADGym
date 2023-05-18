@@ -319,25 +319,17 @@ class Components():
                         d_out=1)
 
         elif self.network_architecture == 'FTT':
-            # self.model = rtdl.FTTransformer.make_baseline(
-            #     n_num_features=input_size,
-            #     cat_cardinalities=None,
-            #     last_layer_query_idx=[-1],  # it makes the model faster and does NOT affect its output
-            #     n_blocks=len(self.hidden_size_list),
-            #     ffn_d_hidden=self.hidden_size_list[-1],
-            #     ffn_dropout=self.dropout,
-            #     d_token=8,
-            #     attention_dropout=0.2,
-            #     residual_dropout=0.0,
-            #     d_out=1)
-
-            self.model = rtdl.FTTransformer.make_default(
+            self.model = rtdl.FTTransformer.make_baseline(
                 n_num_features=input_size,
                 cat_cardinalities=None,
                 last_layer_query_idx=[-1],  # it makes the model faster and does NOT affect its output
-                n_blocks=self.layers,
-                d_out=1,
-            )
+                n_blocks=len(self.hidden_size_list),
+                ffn_d_hidden=self.hidden_size_list[-1],
+                ffn_dropout=self.dropout,
+                d_token=8,
+                attention_dropout=0.2,
+                residual_dropout=0.0,
+                d_out=1)
 
         else:
             raise NotImplementedError
