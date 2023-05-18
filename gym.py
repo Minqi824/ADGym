@@ -128,7 +128,7 @@ class ADGym():
             if gym['loss_name'] != 'inverse' and not gym['batch_resample']:
                 continue
 
-            # ToDo: ordinal loss for other network architectures
+            # todo: ordinal loss for other network architectures
             if gym['loss_name'] == 'ordinal' and gym['network_architecture'] != 'MLP':
                 continue
 

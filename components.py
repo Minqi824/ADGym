@@ -303,33 +303,31 @@ class Components():
         elif self.network_architecture == 'AE':
             self.model = AE(layers=len(self.hidden_size_list), input_size=input_size, hidden_size_list=self.hidden_size_list, act_fun=act, p=self.dropout)
 
-        # todo
         elif self.network_architecture == 'ResNet':
             # dropout_first – the dropout rate of the first dropout layer in each Block.
             # dropout_second – the dropout rate of the second dropout layer in each Block.
             # assert len(set(self.hidden_size_list)) == 1
-
             self.model = rtdl.ResNet.make_baseline(
-                        d_in=input_size,
-                        d_main=128,
-                        d_hidden=self.hidden_size_list[-1],
-                        dropout_first=self.dropout,
-                        dropout_second=0.0,
-                        n_blocks=len(self.hidden_size_list),
-                        d_out=1)
+                            d_in=input_size,
+                            d_main=128,
+                            d_hidden=self.hidden_size_list[-1],
+                            dropout_first=self.dropout,
+                            dropout_second=0.0,
+                            n_blocks=len(self.hidden_size_list),
+                            d_out=1)
 
         elif self.network_architecture == 'FTT':
             self.model = rtdl.FTTransformer.make_baseline(
-                n_num_features=input_size,
-                cat_cardinalities=None,
-                last_layer_query_idx=[-1],  # it makes the model faster and does NOT affect its output
-                n_blocks=len(self.hidden_size_list),
-                ffn_d_hidden=self.hidden_size_list[-1],
-                ffn_dropout=self.dropout,
-                d_token=8,
-                attention_dropout=0.2,
-                residual_dropout=0.0,
-                d_out=1)
+                            n_num_features=input_size,
+                            cat_cardinalities=None,
+                            last_layer_query_idx=[-1],  # it makes the model faster and does NOT affect its output
+                            n_blocks=len(self.hidden_size_list),
+                            ffn_d_hidden=self.hidden_size_list[-1],
+                            ffn_dropout=self.dropout,
+                            d_token=8,
+                            attention_dropout=0.2,
+                            residual_dropout=0.0,
+                            d_out=1)
 
         else:
             raise NotImplementedError
@@ -392,7 +390,6 @@ class Components():
         return loss
 
     def f_optimizer(self):
-        # TODO: weight decay
         if self.optimizer_name == 'SGD':
             self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
