@@ -27,7 +27,6 @@ class ADGym():
                  suffix='',
                  grid_mode='small',
                  grid_size=100,
-                 gan_specific=False,
                  dataset_specific=None):
         '''
         :param la: number of labeled anomalies
@@ -38,14 +37,13 @@ class ADGym():
         '''
         self.la = la
         if dataset_specific is not None:
-            self.suffix = '-'.join([suffix, dataset_specific, str(la), grid_mode, str(grid_size), 'GAN', str(gan_specific)])
+            self.suffix = '-'.join([suffix, dataset_specific, str(la), grid_mode, str(grid_size)])
         else:
-            self.suffix = '-'.join([suffix, str(la), grid_mode, str(grid_size), 'GAN', str(gan_specific)])
+            self.suffix = '-'.join([suffix, str(la), grid_mode, str(grid_size)])
         self.seed_list = seed_list
 
         self.grid_mode = grid_mode
         self.grid_size = grid_size
-        self.gan_specific = gan_specific
 
         self.dataset_specific = dataset_specific
         self.utils = Utils()
@@ -108,7 +106,7 @@ class ADGym():
     def generate_gyms(self):
         self.utils.set_seed(42)
         # generate combinations of different components
-        com = Components(gan_specific=self.gan_specific)
+        com = Components()
         print(com.gym(mode=self.grid_mode)) # see the entire components in the current grid mode (either large or small)
 
         gyms_comb = list(product(*list(com.gym(mode=self.grid_mode).values())))
@@ -185,11 +183,11 @@ class ADGym():
                                                          '-' + str(self.la) + '-' + str(seed) + '.npz'),
                                             data=data['meta_features'])
 
-                    print(f"The size of training set: {data['X_train'].shape}")
                     # 注意此处Components函数的输入data, 如果不copy, 函数内部的修改将会同时对原始数据data进行修改
                     com = Components(seed=seed,
                                      data=data.copy(),
                                      augmentation=gym['augmentation'],
+                                     gan_specific_path=dataset + '-' + str(self.la) + '-' + str(seed) + '.npz',
                                      preprocess=gym['preprocess'],
                                      network_architecture=gym['network_architecture'],
                                      hidden_size_list=gym['hidden_size_list'],
@@ -246,5 +244,5 @@ class ADGym():
 
                 del data
 
-adgym = ADGym(suffix='formal', la=5, grid_mode='small', grid_size=100, gan_specific=True, seed_list=[1, 2, 3])
+adgym = ADGym(suffix='formal', la=5, grid_mode='large', grid_size=1000, seed_list=[1, 2, 3])
 adgym.run()

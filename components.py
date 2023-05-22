@@ -25,7 +25,7 @@ class Components():
                  seed: int = None,
                  data = None,
                  augmentation: str = None,
-                 gan_specific: bool = False,
+                 gan_specific_path: str = None,
                  preprocess: str = None,
                  network_architecture: str = None,
                  hidden_size_list: list = None,
@@ -78,7 +78,7 @@ class Components():
 
         ## data augmentation ##
         self.augmentation = augmentation
-        self.gan_specific = gan_specific
+        self.gan_specific_path = gan_specific_path
 
         ## data preprocessing ##
         self.preprocess = preprocess
@@ -107,7 +107,7 @@ class Components():
         if mode == 'large':
             gyms = {}
             ## data ##
-            gyms['augmentation'] = ['GAN'] if self.gan_specific else [None, 'Oversampling', 'SMOTE', 'Mixup']
+            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'Mixup', 'GAN']
             gyms['preprocess'] = ['minmax', 'normalize']
 
             ## network architecture ##
@@ -133,7 +133,7 @@ class Components():
         elif mode == 'small': # we only discuss the core components in the small grid mode
             gyms = {}
             ## data ##
-            gyms['augmentation'] = ['GAN'] if self.gan_specific else [None, 'Oversampling', 'SMOTE', 'Mixup']
+            gyms['augmentation'] = [None, 'Oversampling', 'SMOTE', 'Mixup', 'GAN']
             gyms['preprocess'] = ['minmax']
 
             ## network architecture ##
@@ -215,14 +215,24 @@ class Components():
         elif self.augmentation == 'GAN':
             # could raise error for higher version of sklearn (e.g., >=1.0)
             # we modify the GAN's params for accelerating,
-            # where the original gan_params = {"batch_size": 500, "patience": 25, "epochs" : 500,}
-            new_X, new_y = GANGenerator(gen_x_times=0.2, gan_params={"batch_size": 100,
-                                                                     "patience": 5,
-                                                                     "epochs" : 100,}).generate_data_pipe(pd.DataFrame(self.data['X_train']),
-                                                                                                          pd.DataFrame(self.data['y_train'], columns=['target']),
-                                                                                                          pd.DataFrame(self.data['X_train']))
-            self.data['X_train'] = new_X.values
-            self.data['y_train'] = new_y.values
+            try:
+                data_aug = np.load('datasets/data-aug/' + self.gan_specific_path)
+                self.data['X_train'] = data_aug['new_X']
+                self.data['y_train'] = data_aug['new_y']
+
+            except:
+                # where the original gan_params = {"batch_size": 500, "patience": 25, "epochs" : 500,}
+                new_X, new_y = GANGenerator(gen_x_times=0.2, gan_params={"batch_size": 100,
+                                                                         "patience": 5,
+                                                                         "epochs" : 100,}).generate_data_pipe(pd.DataFrame(self.data['X_train']),
+                                                                                                              pd.DataFrame(self.data['y_train'], columns=['target']),
+                                                                                                              pd.DataFrame(self.data['X_train']))
+                new_X = new_X.values; new_y = new_y.values
+                self.data['X_train'] = new_X
+                self.data['y_train'] = new_y
+                np.savez_compressed('datasets/data-aug/' + self.gan_specific_path, new_X=new_X, new_y=new_y)
+
+
 
         else:
             raise NotImplementedError

@@ -253,6 +253,7 @@ class meta():
                     com = Components(seed=self.seed,
                                      data=data.copy(),
                                      augmentation=gym['augmentation'],
+                                     gan_specific_path=self.test_dataset + '-' + str(self.test_la) + '-' + str(self.seed) + '.npz',
                                      preprocess=gym['preprocess'],
                                      network_architecture=gym['network_architecture'],
                                      hidden_size_list=gym['hidden_size_list'],

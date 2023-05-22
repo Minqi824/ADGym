@@ -65,8 +65,9 @@ class DataGenerator():
             assert X is not None and y is not None, "For customized dataset, you should provide the X and y!"
         else:
             data = np.load(os.path.join(os.path.dirname(__file__), 'datasets', self.dataset + '.npz'), allow_pickle=True)
-            X = data['X']
-            y = data['y']
+            X, y = data['X'], data['y']
+            if X.dtype != np.float:
+                X = X.astype(np.float)
 
         # if the dataset is too small, generating duplicate samples up to n_samples_lower_bound
         if len(y) < self.n_samples_lower_bound and self.generate_duplicates:
