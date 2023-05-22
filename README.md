@@ -83,3 +83,4 @@ run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-
 - 2023.05.09: add early-stopping mechanism for meta predictor
 - 2023.05.09: add CORAL method for transfer learning in meta features
 - 2023.05.13: provide ensembled topk components
+- 2023.05.22: fixed the bug that modified the original data during the process of conducting the experiment.

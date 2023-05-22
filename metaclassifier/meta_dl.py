@@ -251,7 +251,7 @@ class meta():
                 print(f'Components: {gym}')
                 try:
                     com = Components(seed=self.seed,
-                                     data=data,
+                                     data=data.copy(),
                                      augmentation=gym['augmentation'],
                                      preprocess=gym['preprocess'],
                                      network_architecture=gym['network_architecture'],
@@ -332,7 +332,7 @@ class meta():
 
         return [X_list, y_list, la_list, components, targets]
 
-    def meta_fit_end2end(self):
+    def meta_fit_end2end(self, lr=1e-3):
         # set seed for reproductive results
         self.utils.set_seed(self.seed)
 

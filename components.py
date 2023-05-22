@@ -101,6 +101,7 @@ class Components():
         self.lr = lr
         self.weight_decay = weight_decay
 
+    # todo: GAN gets slower and slower as the experiment goes on
     def gym(self, mode='small'):
         # small or large search space
         if mode == 'large':
@@ -119,6 +120,7 @@ class Components():
             gyms['network_initialization'] = ['default', 'xavier_normal', 'kaiming_normal']
 
             ## network training ##
+            gyms['training_strategy'] = [None]
             gyms['training_strategy'] = [None]
             gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation'] # ordinal
             gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']

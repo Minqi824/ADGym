@@ -185,8 +185,10 @@ class ADGym():
                                                          '-' + str(self.la) + '-' + str(seed) + '.npz'),
                                             data=data['meta_features'])
 
+                    print(f"The size of training set: {data['X_train'].shape}")
+                    # 注意此处Components函数的输入data, 如果不copy, 函数内部的修改将会同时对原始数据data进行修改
                     com = Components(seed=seed,
-                                     data=data,
+                                     data=data.copy(),
                                      augmentation=gym['augmentation'],
                                      preprocess=gym['preprocess'],
                                      network_architecture=gym['network_architecture'],
@@ -202,7 +204,6 @@ class ADGym():
                                      batch_size=gym['batch_size'],
                                      lr=gym['lr'],
                                      weight_decay=gym['weight_decay'])
-
                     try:
                         # training
                         start_time = time.time()
@@ -214,17 +215,16 @@ class ADGym():
                         _, (metrics_train, metrics_test) = com.f_predict_score()
 
                         print(f'Dataset: {dataset}, Current combination: {gym}, training successfully.'
-                              f' Performance (train): {metrics_train}, Performance (test): {metrics_test}')
+                              f' Performance (train): {metrics_train}, Performance (test): {metrics_test}\n')
 
                     except Exception as error:
-                        print(f'Dataset: {dataset}, Current combination: {gym}, training failure. Error: {error}')
+                        print(f'Dataset: {dataset}, Current combination: {gym}, training failure. Error: {error}\n')
                         metrics_train, metrics_test, fit_time = None, None, None
                         pass
                         continue
 
                     K.clear_session()
-                    del com
-                    gc.collect()
+                    del com; gc.collect()
 
                     # save results
                     if metrics_train is not None and metrics_test is not None and fit_time is not None:
@@ -246,5 +246,7 @@ class ADGym():
 
                 del data
 
-adgym = ADGym(suffix='formal', la=5, grid_mode='large', grid_size=1000, gan_specific=False, seed_list=[1])
+                break
+
+adgym = ADGym(suffix='formal', la=5, grid_mode='large', grid_size=100, gan_specific=True, seed_list=[1])
 adgym.run()
