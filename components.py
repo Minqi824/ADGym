@@ -79,6 +79,8 @@ class Components():
         ## data augmentation ##
         self.augmentation = augmentation
         self.gan_specific_path = gan_specific_path
+        if self.gan_specific_path is not None and not os.path.exists('datasets/data-aug'):
+            os.makedirs('datasets/data-aug')
 
         ## data preprocessing ##
         self.preprocess = preprocess
