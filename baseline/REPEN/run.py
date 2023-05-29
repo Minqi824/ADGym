@@ -40,7 +40,6 @@ class REPEN():
         self.model = repen(mode=self.mode, hidden_dim=self.hidden_dim, batch_size=self.batch_size, nb_batch=self.nb_batch,
                            n_epochs=self.n_epochs, known_outliers=1000000, save_suffix=self.save_suffix)
 
-
         # fitting
         self.model.fit(X_train, y_train)
 

@@ -53,10 +53,9 @@ class RunPipeline():
                                             n_samples_upper_bound=self.n_samples_upper_bound)
 
         # # ratio of labeled anomalies
-        self.rla_list = [0.05, 0.10, 0.25, 0.50]
+        self.rla_list = [0.05, 0.10, 0.20]
         # number of labeled anomalies
-        # self.nla_list = [5, 10, 25, 50]
-        self.nla_list = [5]
+        self.nla_list = [5, 10, 20]
 
         # seed list
         self.seed_list = list(np.arange(3) + 1)
@@ -89,25 +88,22 @@ class RunPipeline():
 
             self.model_dict = {'GANomaly': GANomaly,
                                'DeepSAD': DeepSAD,
-                               'REPEN': REPEN,
                                'DevNet': DevNet,
                                'PReNet': PReNet,
                                'FEAWAD': FEAWAD,
-                               'XGBOD': PYOD}
+                               'XGBOD': PYOD} # 'REPEN': REPEN
 
         # fully-supervised algorithms
         elif self.parallel == 'supervise':
             from baseline.Supervised import supervised
             from baseline.FTTransformer.run import FTTransformer
 
-            # # from sklearn
-            # for _ in ['LR', 'NB', 'SVM', 'MLP', 'RF', 'LGB', 'XGB', 'CatB']:
-            #     self.model_dict[_] = supervised
-            # # ResNet and FTTransformer for tabular data
-            # for _ in ['ResNet', 'FTTransformer']:
-            #     self.model_dict[_] = FTTransformer
-
-            self.model_dict = {'CatB': supervised}
+            # from sklearn
+            for _ in ['LR', 'NB', 'SVM', 'MLP', 'RF', 'LGB', 'XGB', 'CatB']:
+                self.model_dict[_] = supervised
+            # ResNet and FTTransformer for tabular data
+            for _ in ['ResNet', 'FTTransformer']:
+                self.model_dict[_] = FTTransformer
 
         else:
             raise NotImplementedError
