@@ -87,11 +87,12 @@ class RunPipeline():
             from baseline.FEAWAD.run import FEAWAD
 
             self.model_dict = {'GANomaly': GANomaly,
+                               'REPEN': REPEN,
                                'DeepSAD': DeepSAD,
                                'DevNet': DevNet,
                                'PReNet': PReNet,
                                'FEAWAD': FEAWAD,
-                               'XGBOD': PYOD} # 'REPEN': REPEN
+                               'XGBOD': PYOD}
 
         # fully-supervised algorithms
         elif self.parallel == 'supervise':

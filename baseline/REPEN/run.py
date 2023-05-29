@@ -3,10 +3,11 @@ from baseline.REPEN.model import repen
 from utils import Utils
 import os
 
-
+# we change the training epochs to 1000 since we find that the default setting (epochs=30) cannot guarantee
+# satisfactory performance of REPEN
 class REPEN():
     def __init__(self, seed, model_name='REPEN', save_suffix='test',
-                 mode:str='supervised', hidden_dim:int=20, batch_size:int=256, nb_batch:int=50, n_epochs:int=30):
+                 mode:str='supervised', hidden_dim:int=20, batch_size:int=256, nb_batch:int=50, n_epochs:int=1000):
         self.utils = Utils()
         self.device = self.utils.get_device()  # get device
         self.seed = seed
@@ -36,7 +37,7 @@ class REPEN():
         if sum(y_train) == 0:
             self.mode = 'unsupervised'
 
-        # model initialization
+        # # model initialization
         self.model = repen(mode=self.mode, hidden_dim=self.hidden_dim, batch_size=self.batch_size, nb_batch=self.nb_batch,
                            n_epochs=self.n_epochs, known_outliers=1000000, save_suffix=self.save_suffix)
 

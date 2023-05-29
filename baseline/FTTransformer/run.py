@@ -28,10 +28,7 @@ class FTTransformer():
         self.utils = Utils()
 
         # device
-        if model_name == 'FTTransformer':
-            self.device = self.utils.get_device(gpu_specific=True)
-        else:
-            self.device = self.utils.get_device(gpu_specific=False)
+        self.device = self.utils.get_device(gpu_specific=True)
 
         # Docs: https://yura52.github.io/zero/0.0.4/reference/api/zero.improve_reproducibility.html
         # zero.improve_reproducibility(seed=self.seed)

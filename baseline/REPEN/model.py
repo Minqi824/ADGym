@@ -154,7 +154,7 @@ class Trainer:
         # except:
         #     model_name = self.path_model + mode + "_" + str(np.hstack(outlier_indices).shape[0]) + "_" + \
         #                  str(network.hidden_dim) + "_" + str(self.batch_size)
-        checkpointer = ModelCheckpoint(model_name, monitor='loss', verbose=0,
+        checkpointer = ModelCheckpoint(model_name, monitor='loss', verbose=2,
                                        save_best_only=True,
                                        save_weights_only=True)
 
