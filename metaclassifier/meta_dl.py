@@ -50,7 +50,6 @@ class meta():
                  suffix: str = '',
                  grid_mode: int = 'small',
                  grid_size: int = 1000,
-                 gan_specific: bool = False,
                  ensemble: bool = True,
                  test_dataset: str = None,
                  test_la: int = None):
@@ -60,7 +59,6 @@ class meta():
         self.suffix = suffix
         self.grid_mode = grid_mode
         self.grid_size = grid_size
-        self.gan_specific = gan_specific
         self.ensemble = ensemble
 
         self.test_dataset = test_dataset
@@ -114,9 +112,9 @@ class meta():
         # generate training data for meta predictor
         meta_features, las, components, performances = [], [], [], []
 
-        for la in [5, 10, 25, 50]:
-            result = pd.read_csv('../result/components-' + self.grid_mode + '-' + str(self.grid_size) + '/result-' + self.metric + '-test-' +
-                                 '-'.join([self.suffix, str(la), self.grid_mode, str(self.grid_size), 'GAN', str(self.gan_specific), str(self.seed)]) + '.csv')
+        for la in [5, 10, 20]:
+            result = pd.read_csv('../result/result-' + self.metric + '-test-' +
+                                 '-'.join([self.suffix, str(la), self.grid_mode, str(self.grid_size), str(self.seed)]) + '.csv')
             result.rename(columns={'Unnamed: 0': 'Components'}, inplace=True)
 
             # remove dataset of testing task
@@ -292,9 +290,8 @@ class meta():
         else:
             # since we have already train-test all the components on each dataset,
             # we can only inquire the experiment result with no information leakage
-            result = pd.read_csv('../result/components-' + self.grid_mode + '-' + str(self.grid_size) + '/result-' + self.metric + '-test-' + '-'.join(
-                [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), 'GAN',
-                 str(self.gan_specific), str(self.seed)]) + '.csv')
+            result = pd.read_csv('../result/result-' + self.metric + '-test-' + '-'.join(
+                [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), str(self.seed)]) + '.csv')
             for _ in torch.argsort(pred.squeeze()):
                 pred_performance = result.loc[_.item(), self.test_dataset]
                 if not pd.isnull(pred_performance):
@@ -338,9 +335,9 @@ class meta():
         self.utils.set_seed(self.seed)
 
         meta_data = []
-        for la in [5, 10, 25, 50]:
-            result = pd.read_csv('../result/components-' + self.grid_mode + '-' + str(self.grid_size) + '/result-' + self.metric + '-test-' + '-'.join(
-                [self.suffix, str(la), self.grid_mode, str(self.grid_size), 'GAN', str(self.gan_specific), str(self.seed)]) + '.csv')
+        for la in [5, 10, 20]:
+            result = pd.read_csv('../result/result-' + self.metric + '-test-' + '-'.join(
+                [self.suffix, str(la), self.grid_mode, str(self.grid_size), str(self.seed)]) + '.csv')
             result.rename(columns={'Unnamed: 0': 'Components'}, inplace=True)
 
             # remove dataset of testing task
@@ -412,9 +409,8 @@ class meta():
 
         # since we have already train-test all the components on each dataset,
         # we can only inquire the experiment result with no information leakage
-        result = pd.read_csv('../result/components-' + self.grid_mode + '-' + str(self.grid_size) + '/result-' + self.metric + '-test-' + '-'.join(
-            [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), 'GAN',
-             str(self.gan_specific), str(self.seed)]) + '.csv')
+        result = pd.read_csv('../result/result-' + self.metric + '-test-' + '-'.join(
+            [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), str(self.seed)]) + '.csv')
         for _ in np.argsort(preds):
             pred_performance = result.loc[_, self.test_dataset]
             if not pd.isnull(pred_performance):
@@ -429,7 +425,6 @@ def run_demo():
                     suffix='formal',
                     grid_mode='small',
                     grid_size=1000,
-                    gan_specific=False,
                     test_dataset='44_Wilt')
 
     clf = run_meta.meta_fit()
@@ -443,7 +438,7 @@ def run_demo():
     # print(perf)
 
 # experiments for two-stage or end-to-end version of meta classifer
-def run(suffix, grid_mode, grid_size, gan_specific, mode):
+def run(suffix, grid_mode, grid_size, mode):
     # run experiments for comparing proposed meta classifier and current SOTA methods
     utils = Utils()
 
@@ -471,10 +466,10 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
             # 1. rs: random selection;
             # 2. ss: selection based on the labeled anomalies in the training set of testing task
             # 3. gt: ground truth where the best model can always be selected
-            result_meta_baseline_train = pd.read_csv('../result/components-' + grid_mode + '-' + str(grid_size) + '/result-' + metric + '-train-' + '-'.join(
-                [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific), str(test_seed)]) + '.csv')
-            result_meta_baseline_test = pd.read_csv('../result/components-' + grid_mode + '-' + str(grid_size) + '/result-' + metric + '-test-' + '-'.join(
-                [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific), str(test_seed)]) + '.csv')
+            result_meta_baseline_train = pd.read_csv('../result/result-' + metric + '-train-' + '-'.join(
+                [suffix, str(test_la), grid_mode, str(grid_size), str(test_seed)]) + '.csv')
+            result_meta_baseline_test = pd.read_csv('../result/result-' + metric + '-test-' + '-'.join(
+                [suffix, str(test_la), grid_mode, str(grid_size), str(test_seed)]) + '.csv')
 
             # random search
             for _ in range(result_meta_baseline_train.shape[0]):
@@ -505,7 +500,6 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
                             suffix=suffix,
                             grid_mode=grid_mode,
                             grid_size=grid_size,
-                            gan_specific=gan_specific,
                             test_dataset=test_dataset)
 
             # try:
@@ -550,11 +544,11 @@ def run(suffix, grid_mode, grid_size, gan_specific, mode):
             test_seed_previous = test_seed
 
 # formal experiments
-run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, mode='two-stage')
-# run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, mode='end-to-end')
+run(suffix='formal', grid_mode='large', grid_size=1000, mode='two-stage')
+# run(suffix='formal', grid_mode='large', grid_size=1000, mode='end-to-end')
 
-# run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, mode='two-stage')
-# run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, mode='end-to-end')
+# run(suffix='formal', grid_mode='large', grid_size=1000, mode='two-stage')
+# run(suffix='formal', grid_mode='large', grid_size=1000, mode='end-to-end')
 
 
 # demo experiment for debugging
