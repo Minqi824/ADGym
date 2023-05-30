@@ -42,7 +42,7 @@ class Utils():
 
         return device
 
-    def criterion(self, y_true, y_pred, mode='pearson'):
+    def criterion(self, y_true, y_pred, mode=None):
         assert torch.is_tensor(y_true) and torch.is_tensor(y_pred)
         if mode == 'pearson':
             x = y_pred
@@ -96,29 +96,40 @@ class Utils():
         return metric
 
     @torch.no_grad()
-    def evaluate(self, model, val_loader, device):
+    def evaluate(self, model, val_loader, device, mode=None):
         model.eval()
-        y_pred, y_true = [], []
+        y_pred, y_true, val_metric_batch = [], [], []
         for batch in val_loader:
             batch_meta_features, batch_la, batch_components, batch_y = [_.to(device) for _ in batch]
             _, pred = model(batch_meta_features, batch_la.unsqueeze(1), batch_components)
 
-            y_pred.extend(pred.squeeze().cpu().tolist())
-            y_true.extend(batch_y.squeeze().cpu().tolist())
-        val_metric = self.criterion(y_true=torch.tensor(y_true), y_pred=torch.tensor(y_pred))
+            y_pred_batch = pred.squeeze().cpu().tolist(); y_pred.extend(y_pred_batch)
+            y_true_batch = batch_y.squeeze().cpu().tolist(); y_true.extend(y_true_batch)
+            val_metric_batch.append(self.criterion(y_true=y_true_batch, y_pred=y_pred_batch, mode=mode))
+
+        if mode == 'ranknet':
+            val_metric = np.mean(val_metric_batch)
+        else:
+            val_metric = self.criterion(y_true=torch.tensor(y_true), y_pred=torch.tensor(y_pred), mode=mode)
 
         return val_metric
 
-    def evaluate_end2end(self, model, meta_data_val, device):
+    @torch.no_grad()
+    def evaluate_end2end(self, model, meta_data_val, device, mode=None):
         model.eval()
-        y_pred, y_true = [], []
+        y_pred, y_true, val_metric_batch = [], [], []
         for meta_data_batch in meta_data_val:
             X_list, y_list, la_list, components, targets = meta_data_batch
             _, _, pred = model(X_list, y_list, la_list, components)
 
-            y_pred.extend(pred.squeeze().cpu().tolist())
-            y_true.extend(targets.squeeze().cpu().tolist())
-        val_metric = self.criterion(y_true=torch.tensor(y_true), y_pred=torch.tensor(y_pred))
+            y_pred_batch = pred.squeeze().cpu().tolist(); y_pred.extend(y_pred_batch)
+            y_true_batch = targets.squeeze().cpu().tolist(); y_true.extend(y_true_batch)
+            val_metric_batch.append(self.criterion(y_true=y_true_batch, y_pred=y_pred_batch, mode=mode))
+
+        if mode == 'ranknet':
+            val_metric = np.mean(val_metric_batch)
+        else:
+            val_metric = self.criterion(y_true=torch.tensor(y_true), y_pred=torch.tensor(y_pred), mode=mode)
 
         return val_metric
 

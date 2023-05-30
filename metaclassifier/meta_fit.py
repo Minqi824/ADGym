@@ -7,7 +7,7 @@ from utils import Utils
 
 utils = Utils()
 
-def fit(train_loader, model, optimizer, epochs, val_loader=None, es=False, tol: int = 5):
+def fit(train_loader, model, optimizer, epochs, loss_name=None, val_loader=None, es=False, tol: int = 5):
     best_metric = -9999; t = 0
 
     loss_epoch = []
@@ -21,7 +21,7 @@ def fit(train_loader, model, optimizer, epochs, val_loader=None, es=False, tol: 
 
             # loss forward
             _, pred = model(batch_meta_features, batch_la.unsqueeze(1), batch_components)
-            loss = -utils.criterion(y_pred=pred.squeeze(), y_true=batch_y)
+            loss = -utils.criterion(y_pred=pred.squeeze(), y_true=batch_y, mode=loss_name)
 
             # loss backward
             loss.backward()
@@ -33,7 +33,7 @@ def fit(train_loader, model, optimizer, epochs, val_loader=None, es=False, tol: 
         loss_epoch.append(np.mean(loss_batch))
 
         if val_loader is not None and es:
-            val_metric = utils.evaluate(model, val_loader=val_loader, device=batch_y.device)
+            val_metric = utils.evaluate(model, val_loader=val_loader, device=batch_y.device, mode=loss_name)
             print(f'Epoch: {i}--Training Loss: {round(np.mean(loss_batch), 4)}---Validation Metric: {round(val_metric.item(), 4)}')
             if val_metric > best_metric:
                 best_metric = val_metric
@@ -49,7 +49,7 @@ def fit(train_loader, model, optimizer, epochs, val_loader=None, es=False, tol: 
 
     return i
 
-def fit_end2end(meta_data, model, optimizer, epochs, meta_data_val=None, es=False, tol: int = 5):
+def fit_end2end(meta_data, model, optimizer, epochs, loss_name=None, meta_data_val=None, es=False, tol: int = 5):
     best_metric = -9999; t = 0
     loss_epoch = []
     for i in range(epochs):
@@ -62,7 +62,7 @@ def fit_end2end(meta_data, model, optimizer, epochs, meta_data_val=None, es=Fals
 
             # loss forward
             _, _, pred = model(X_list, y_list, la_list, components)
-            loss = -utils.criterion(y_pred=pred.squeeze(), y_true=targets)
+            loss = -utils.criterion(y_pred=pred.squeeze(), y_true=targets, mode=loss_name)
 
             # loss backward
             loss.backward()
@@ -75,7 +75,7 @@ def fit_end2end(meta_data, model, optimizer, epochs, meta_data_val=None, es=Fals
         loss_epoch.append(np.mean(loss_batch))
 
         if meta_data_val is not None and es:
-            val_metric = utils.evaluate_end2end(model, meta_data_val=meta_data_val, device=components.device)
+            val_metric = utils.evaluate_end2end(model, meta_data_val=meta_data_val, device=components.device, mode=loss_name)
             print(f'Epoch: {i}--Training Loss: {round(np.mean(loss_batch), 4)}---Validation Metric: {round(val_metric.item(), 4)}')
             if val_metric > best_metric:
                 best_metric = val_metric

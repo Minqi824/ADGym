@@ -50,6 +50,7 @@ class meta():
                  suffix: str = '',
                  grid_mode: int = 'small',
                  grid_size: int = 1000,
+                 loss_name: str = None,
                  ensemble: bool = True,
                  test_dataset: str = None,
                  test_la: int = None):
@@ -59,6 +60,7 @@ class meta():
         self.suffix = suffix
         self.grid_mode = grid_mode
         self.grid_size = grid_size
+        self.loss_name = loss_name
         self.ensemble = ensemble
 
         self.test_dataset = test_dataset
@@ -193,7 +195,7 @@ class meta():
         print('fitting meta predictor...')
         epochs = 20 if not es else 100
         if es:
-            best_epochs = fit(train_loader, self.model, optimizer, epochs=epochs, val_loader=val_loader, es=es)
+            best_epochs = fit(train_loader, self.model, optimizer, epochs=epochs, val_loader=val_loader, es=es, loss_name=self.loss_name)
             # refit
             print(f'Refitting...the best epochs: {best_epochs}')
             train_dataset = ConcatDataset([train_loader.dataset, val_loader.dataset]); del val_loader
@@ -202,9 +204,9 @@ class meta():
                                         n_per_col=[max(components[:, i]).item() + 1 for i in range(components.size(1))])
             self.model.to(self.device)
             optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
-            fit(train_loader, self.model, optimizer, epochs=best_epochs, es=False)
+            fit(train_loader, self.model, optimizer, epochs=best_epochs, es=False, loss_name=self.loss_name)
         else:
-            fit(train_loader, self.model, optimizer, epochs=epochs)
+            fit(train_loader, self.model, optimizer, epochs=epochs, loss_name=self.loss_name)
 
         return self
 
@@ -230,19 +232,18 @@ class meta():
         components_test = torch.from_numpy(self.components_df_index.values).float().to(self.device)
 
         # predicting
+        self.model.eval()
         with torch.no_grad():
             _, pred = self.model(meta_feature_test, la_test.unsqueeze(1), components_test)
         pred = pred.cpu()
 
-        # (todo) select top k components for ensembling
         if self.ensemble:
             # data
             data_generator_ensemble = DataGenerator(dataset=self.test_dataset, seed=self.seed)
             data = data_generator_ensemble.generator(la=self.test_la, meta=False)
 
-            score_ensemble = []
+            score_ensemble = []; count_top_k = 0
             assert len(self.components_list) == pred.size(0)
-            count_top_k = 0
             for i, idx in enumerate(np.argsort(pred.squeeze().numpy())):
                 print(f'fitting top {i + 1}-th base model...')
                 gym = self.components_list[idx]
@@ -376,8 +377,6 @@ class meta():
 
                 meta_data_train = [_ for i, _ in enumerate(meta_data) if i in idx_train]
                 meta_data_val = [_ for i, _ in enumerate(meta_data) if i not in idx_train]
-
-                print(len(meta_data), len(meta_data_train), len(meta_data_val))
             else:
                 pass
 
@@ -393,44 +392,97 @@ class meta():
             epochs = 20 if not es else 100
             if es:
                 best_epochs = fit_end2end(meta_data_train, self.model, optimizer, epochs=epochs,
-                                          meta_data_val=meta_data_val, es=es)
+                                          meta_data_val=meta_data_val, es=es, loss_name=self.loss_name)
                 # refit
                 self.model = meta_predictor_end2end(n_col=self.components_df_index.shape[1],
                                                     n_per_col=[max(self.components_df_index.iloc[:, i]) + 1 for i in
                                                                range(self.components_df_index.shape[1])])
                 self.model.to(self.device)
                 optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
-                fit_end2end(meta_data, self.model, optimizer, epochs=best_epochs, es=False)
+                fit_end2end(meta_data, self.model, optimizer, epochs=best_epochs, es=False, loss_name=self.loss_name)
             else:
-                fit_end2end(meta_data, self.model, optimizer, epochs=epochs)
+                fit_end2end(meta_data, self.model, optimizer, epochs=epochs, loss_name=self.loss_name)
 
             return self
 
-    @torch.no_grad()
-    def meta_predict_end2end(self):
+    def meta_predict_end2end(self, metric=None, top_k=5):
         self.data_generator.dataset = self.test_dataset
         self.data_generator.seed = self.seed
         test_data = self.data_generator.generator(la=self.test_la)
 
         # notice that we can only use the training set of the testing task
-        preds = []
+        preds = []; self.model.eval()
         for i in range(self.components_df_index.shape[0]):
             X_list_test = [torch.from_numpy(test_data['X_train']).float().to(self.device)]
             y_list_test = [torch.from_numpy(test_data['y_train']).float().to(self.device)]
             la_test = torch.tensor([[self.test_la]]).to(self.device)
             components_test = torch.from_numpy(self.components_df_index.values[i, :].reshape(1, -1)).float().to(self.device)
-            _, _, pred = self.model(X_list_test, y_list_test, la_test, components_test)
+            with torch.no_grad():
+                _, _, pred = self.model(X_list_test, y_list_test, la_test, components_test)
             preds.append(pred.cpu().item())
         preds = np.array(preds)
 
-        # since we have already train-test all the components on each dataset,
-        # we can only inquire the experiment result with no information leakage
-        result = pd.read_csv('../result/result-' + self.metric + '-test-' + '-'.join(
-            [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), str(self.seed)]) + '.csv')
-        for _ in np.argsort(preds):
-            pred_performance = result.loc[_, self.test_dataset]
-            if not pd.isnull(pred_performance):
-                break
+        if self.ensemble:
+            # data
+            data_generator_ensemble = DataGenerator(dataset=self.test_dataset, seed=self.seed)
+            data = data_generator_ensemble.generator(la=self.test_la, meta=False)
+
+            score_ensemble = []; count_top_k = 0
+            assert len(self.components_list) == preds.shape[0]
+            for i, idx in enumerate(np.argsort(pred)):
+                print(f'fitting top {i + 1}-th base model...')
+                gym = self.components_list[idx]
+                print(f'Components: {gym}')
+                try:
+                    com = Components(seed=self.seed,
+                                     data=data.copy(),
+                                     augmentation=gym['augmentation'],
+                                     gan_specific_path=self.test_dataset + '-' + str(self.test_la) + '-' + str(
+                                         self.seed) + '.npz',
+                                     preprocess=gym['preprocess'],
+                                     network_architecture=gym['network_architecture'],
+                                     hidden_size_list=gym['hidden_size_list'],
+                                     act_fun=gym['act_fun'],
+                                     dropout=gym['dropout'],
+                                     network_initialization=gym['network_initialization'],
+                                     training_strategy=gym['training_strategy'],
+                                     loss_name=gym['loss_name'],
+                                     optimizer_name=gym['optimizer_name'],
+                                     batch_resample=gym['batch_resample'],
+                                     epochs=gym['epochs'],
+                                     batch_size=gym['batch_size'],
+                                     lr=gym['lr'],
+                                     weight_decay=gym['weight_decay'])
+                    # fit
+                    com.f_train()
+                    # predict and ensemble
+                    (score_train, score_test), _ = com.f_predict_score()
+                    score_ensemble.append(score_test)
+
+                    count_top_k += 1
+                except Exception as error:
+                    print(f'Error when fitting top {i + 1}-th base model, error: {error}')
+                    pass
+                    continue
+
+                if count_top_k >= top_k:
+                    break
+
+                # evaluate (notice that the scale of predicted anomaly score could be different in base models)
+            score_ensemble = np.stack(score_ensemble).T;
+            assert score_ensemble.shape[1] == top_k
+            score_ensemble = np.apply_along_axis(lambda x: np.argsort(np.argsort(x)) / len(x), 0, score_ensemble)
+            score_ensemble = np.mean(score_ensemble, axis=1)
+            pred_performance = self.utils.metric(y_true=data['y_test'], y_score=score_ensemble)[metric]
+        else:
+            # since we have already train-test all the components on each dataset,
+            # we can only inquire the experiment result with no information leakage
+            result = pd.read_csv('../result/result-' + self.metric + '-test-' + '-'.join(
+                [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), str(self.seed)]) + '.csv')
+            for _ in np.argsort(preds):
+                pred_performance = result.loc[_, self.test_dataset]
+                if not pd.isnull(pred_performance):
+                    break
 
         return pred_performance
 
@@ -454,7 +506,7 @@ def run_demo():
     # print(perf)
 
 # experiments for two-stage or end-to-end version of meta predictor
-def run(suffix, grid_mode, grid_size, mode):
+def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False):
     # run experiments for comparing proposed meta predictor and current SOTA methods
     utils = Utils()
 
@@ -537,7 +589,7 @@ def run(suffix, grid_mode, grid_size, mode):
                         print('Using the trained meta predictor to predict...')
 
                     clf.test_la = test_la
-                    perf = clf.meta_predict_end2end()
+                    perf = clf.meta_predict_end2end(metric=metric.lower())
 
                 else:
                     raise NotImplementedError
@@ -550,18 +602,21 @@ def run(suffix, grid_mode, grid_size, mode):
             result_SOTA['Meta'] = meta_classifier_performance
 
             if mode == 'two-stage':
-                result_SOTA.to_csv('../result/' + metric + '-meta-dl-twostage(ensemble_pearson).csv', index=False)
+                result_SOTA.to_csv('../result/' + metric + '-' + loss_name + '-' + str(ensemble) + '-meta-dl-twostage.csv', index=False)
             elif mode == 'end-to-end':
-                result_SOTA.to_csv('../result/' + metric + '-meta-dl-end2end.csv', index=False)
+                result_SOTA.to_csv('../result/' + metric + '-' + loss_name + '-' + str(ensemble) + '-meta-dl-end2end.csv', index=False)
             else:
                 raise NotImplementedError
 
             test_dataset_previous = test_dataset
             test_seed_previous = test_seed
 
-# formal experiments
-# run(suffix='formal', grid_mode='large', grid_size=1000, mode='two-stage')
-run(suffix='formal', grid_mode='large', grid_size=1000, mode='end-to-end')
-
 # demo experiment for debugging
 # run_demo()
+
+# formal experiments
+# loss_name: ['pearson', 'ranknet', 'mse', 'weighted_mse']
+# ensemble: bool
+# mode: either 'two-stage' or 'end-to-end'
+run(suffix='formal', grid_mode='large', grid_size=1000, loss_name='ranknet', ensemble=False, mode='two-stage')
+
