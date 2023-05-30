@@ -255,7 +255,6 @@ class meta():
                                      preprocess=gym['preprocess'],
                                      network_architecture=gym['network_architecture'],
                                      hidden_size_list=gym['hidden_size_list'],
-                                     layers=gym['layers'],
                                      act_fun=gym['act_fun'],
                                      dropout=gym['dropout'],
                                      network_initialization=gym['network_initialization'],
@@ -275,7 +274,7 @@ class meta():
 
                     count_top_k += 1
                 except Exception as error:
-                    print(f'Error when fitting top {i+1}-th base model')
+                    print(f'Error when fitting top {i+1}-th base model, error: {error}')
                     pass
                     continue
 
