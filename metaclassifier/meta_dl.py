@@ -1,4 +1,4 @@
-# Training a meta classifier to predict detection performance by given:
+# Training a meta predictor to predict detection performance by given:
 # 1. meta-feature
 # meta-feature can be extracted by using either end2end method like dataset2vec,
 # or some two-stage method like the meta-feature extracted in the MetaOD method
@@ -103,9 +103,9 @@ class meta():
         return components_list, components_df_index
 
     # TODO
-    # add some constraints to improve the training process of meta classifier, e.g.,
+    # add some constraints to improve the training process of meta predictor, e.g.,
     # we can remove some unimportant components after detailed analysis
-    ############################## meta classifier of two-stage version ##############################
+    ############################## meta predictor of two-stage version ##############################
     def meta_fit(self, batch_size=512, es=True, lr=1e-3): # default: 512, False, 1e-2
         # set seed for reproductive results
         self.utils.set_seed(self.seed)
@@ -137,7 +137,7 @@ class meta():
                                 '../datasets/meta-features/' + 'meta-features-' + result.columns[j] + '-' + str(
                                     la) + '-' + str(self.seed) + '.npz', allow_pickle=True)
 
-                            # preparing training data for meta classifier
+                            # preparing training data for meta predictor
                             # note that we only extract meta features in training set of both training & testing tasks
                             meta_features.append(meta_feature['data'])
                             las.append(la)
@@ -183,14 +183,14 @@ class meta():
             train_loader = DataLoader(TensorDataset(meta_features, las, components, performances),
                                       batch_size=batch_size, shuffle=True, drop_last=True)
 
-        # initialize meta classifier
+        # initialize meta predictor
         self.model = meta_predictor(n_col=components.size(1),
                                     n_per_col=[max(components[:, i]).item() + 1 for i in range(components.size(1))])
         self.model.to(self.device)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
-        # fitting meta classifier
-        print('fitting meta classifier...')
+        # fitting meta predictor
+        print('fitting meta predictor...')
         epochs = 20 if not es else 100
         if es:
             best_epochs = fit(train_loader, self.model, optimizer, epochs=epochs, val_loader=val_loader, es=es)
@@ -298,9 +298,9 @@ class meta():
 
         return pred_performance
 
-    ############################## meta classifier of end-to-end version ##############################
-    # dataloader for end2end meta classifier version
-    def dataloader(self, meta_data, downsample=True, n_samples_upper_bound=256, n_features_upper_bound=100):
+    ############################## meta predictor of end-to-end version ##############################
+    # dataloader for end2end meta predictor version, n_samples_upper_bound=256, n_features_upper_bound=100
+    def dataloader(self, meta_data, downsample=True, n_samples_upper_bound=16, n_features_upper_bound=100):
         self.utils.set_seed(self.seed)
 
         X_list, y_list, la_list, components, targets = [], [], [], [], []
@@ -329,7 +329,7 @@ class meta():
 
         return [X_list, y_list, la_list, components, targets]
 
-    def meta_fit_end2end(self, lr=1e-3):
+    def meta_fit_end2end(self, es=True, lr=1e-3):
         # set seed for reproductive results
         self.utils.set_seed(self.seed)
 
@@ -370,15 +370,39 @@ class meta():
                 if len(meta_data_batch) > 0:
                     meta_data.append(self.dataloader(meta_data_batch))
 
-            # initialize meta classifier
+            if es:
+                train_size = int(0.7 * len(meta_data))
+                idx_train = np.random.choice(np.arange(len(meta_data)), train_size, replace=False)
+
+                meta_data_train = [_ for i, _ in enumerate(meta_data) if i in idx_train]
+                meta_data_val = [_ for i, _ in enumerate(meta_data) if i not in idx_train]
+
+                print(len(meta_data), len(meta_data_train), len(meta_data_val))
+            else:
+                pass
+
+            # initialize meta predictor
             self.model = meta_predictor_end2end(n_col=self.components_df_index.shape[1],
                                                 n_per_col=[max(self.components_df_index.iloc[:, i]) + 1 for i in
                                                            range(self.components_df_index.shape[1])])
             self.model.to(self.device)
             optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
-            # fitting meta classifier
-            fit_end2end(meta_data, self.model, optimizer)
+            # fitting meta predictor, the batch size of meta data is equal to the number of training datasets
+            print(f'fitting end-to-end meta predictor')
+            epochs = 20 if not es else 100
+            if es:
+                best_epochs = fit_end2end(meta_data_train, self.model, optimizer, epochs=epochs,
+                                          meta_data_val=meta_data_val, es=es)
+                # refit
+                self.model = meta_predictor_end2end(n_col=self.components_df_index.shape[1],
+                                                    n_per_col=[max(self.components_df_index.iloc[:, i]) + 1 for i in
+                                                               range(self.components_df_index.shape[1])])
+                self.model.to(self.device)
+                optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+                fit_end2end(meta_data, self.model, optimizer, epochs=best_epochs, es=False)
+            else:
+                fit_end2end(meta_data, self.model, optimizer, epochs=epochs)
 
             return self
 
@@ -389,13 +413,6 @@ class meta():
         test_data = self.data_generator.generator(la=self.test_la)
 
         # notice that we can only use the training set of the testing task
-        # X_list_test = [torch.from_numpy(test_data['X_train']).float() for i in range(self.components_df_index.shape[0])]
-        # y_list_test = [torch.from_numpy(test_data['y_train']).float() for i in range(self.components_df_index.shape[0])]
-        # la_test = torch.tensor([self.test_la for i in range(self.components_df_index.shape[0])]).unsqueeze(1)
-        # components_test = torch.from_numpy(self.components_df_index.values).float()
-        #
-        # _, _, pred = self.model(X_list_test, y_list_test, la_test, components_test)
-
         preds = []
         for i in range(self.components_df_index.shape[0]):
             X_list_test = [torch.from_numpy(test_data['X_train']).float().to(self.device)]
@@ -436,9 +453,9 @@ def run_demo():
     # perf = clf.meta_predict_end2end()
     # print(perf)
 
-# experiments for two-stage or end-to-end version of meta classifer
+# experiments for two-stage or end-to-end version of meta predictor
 def run(suffix, grid_mode, grid_size, mode):
-    # run experiments for comparing proposed meta classifier and current SOTA methods
+    # run experiments for comparing proposed meta predictor and current SOTA methods
     utils = Utils()
 
     for metric in ['AUCROC', 'AUCPR']:
@@ -456,7 +473,7 @@ def run(suffix, grid_mode, grid_size, mode):
         for i in tqdm(range(result_SOTA.shape[0])):
             # extract the testing task from the SOTA model results
             test_dataset, test_seed, test_la = ast.literal_eval(result_SOTA.iloc[i, 0])
-            print(f'Experiments on meta classifier: Dataset: {test_dataset}, seed: {test_seed}, la: {test_la}')
+            print(f'Experiments on meta predictor: Dataset: {test_dataset}, seed: {test_seed}, la: {test_la}')
 
             # set seed for reproductive results
             utils.set_seed(test_seed)
@@ -493,7 +510,7 @@ def run(suffix, grid_mode, grid_size, mode):
             result_SOTA['Meta_baseline_ss'] = meta_baseline_ss_performance
             result_SOTA['Meta_baseline_gt'] = meta_baseline_gt_performance
 
-            # run meta classifier
+            # run meta predictor
             run_meta = meta(seed=test_seed,
                             metric=metric,
                             suffix=suffix,
@@ -501,34 +518,34 @@ def run(suffix, grid_mode, grid_size, mode):
                             grid_size=grid_size,
                             test_dataset=test_dataset)
 
-            # try:
-            if mode == 'two-stage':
-                # retrain the meta classifier if we need to test on the new testing task
-                if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
-                    clf = run_meta.meta_fit()
+            try:
+                if mode == 'two-stage':
+                    # retrain the meta predictor if we need to test on the new testing task
+                    if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
+                        clf = run_meta.meta_fit()
+                    else:
+                        print('Using the trained meta predictor to predict...')
+
+                    clf.test_la = test_la
+                    perf = clf.meta_predict(metric=metric.lower())
+
+                elif mode == 'end-to-end':
+                    # retrain the meta predictor if we need to test on the new testing task
+                    if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
+                        clf = run_meta.meta_fit_end2end()
+                    else:
+                        print('Using the trained meta predictor to predict...')
+
+                    clf.test_la = test_la
+                    perf = clf.meta_predict_end2end()
+
                 else:
-                    print('Using the trained meta classifier to predict...')
+                    raise NotImplementedError
 
-                clf.test_la = test_la
-                perf = clf.meta_predict(metric=metric.lower())
-
-            elif mode == 'end-to-end':
-                # retrain the meta classifier if we need to test on the new testing task
-                if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
-                    clf = run_meta.meta_fit_end2end()
-                else:
-                    print('Using the trained meta classifier to predict...')
-
-                clf.test_la = test_la
-                perf = clf.meta_predict_end2end()
-
-            else:
-                raise NotImplementedError
-
-            meta_classifier_performance[i] = perf
-            # except Exception as error:
-            #     print(f'Something error when training meta-classifier: {error}')
-            #     meta_classifier_performance[i] = -1
+                meta_classifier_performance[i] = perf
+            except Exception as error:
+                print(f'Something error when training meta-classifier: {error}')
+                meta_classifier_performance[i] = -1
 
             result_SOTA['Meta'] = meta_classifier_performance
 
@@ -543,12 +560,8 @@ def run(suffix, grid_mode, grid_size, mode):
             test_seed_previous = test_seed
 
 # formal experiments
-run(suffix='formal', grid_mode='large', grid_size=1000, mode='two-stage')
-# run(suffix='formal', grid_mode='large', grid_size=1000, mode='end-to-end')
-
 # run(suffix='formal', grid_mode='large', grid_size=1000, mode='two-stage')
-# run(suffix='formal', grid_mode='large', grid_size=1000, mode='end-to-end')
-
+run(suffix='formal', grid_mode='large', grid_size=1000, mode='end-to-end')
 
 # demo experiment for debugging
 # run_demo()

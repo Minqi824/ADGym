@@ -261,5 +261,5 @@ class RunPipeline():
                 df_time_inference.to_csv(os.path.join(os.getcwd(), 'result', 'Time-inference-' + self.suffix + '.csv'), index=True)
 
 # run the above pipeline for reproducing the results in the paper
-pipeline = RunPipeline(suffix='SOTA', parallel='supervise', mode='nla')
+pipeline = RunPipeline(suffix='SOTA', parallel='semi-supervise', mode='nla')
 pipeline.run()

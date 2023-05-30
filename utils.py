@@ -109,6 +109,19 @@ class Utils():
 
         return val_metric
 
+    def evaluate_end2end(self, model, meta_data_val, device):
+        model.eval()
+        y_pred, y_true = [], []
+        for meta_data_batch in meta_data_val:
+            X_list, y_list, la_list, components, targets = meta_data_batch
+            _, _, pred = model(X_list, y_list, la_list, components)
+
+            y_pred.extend(pred.squeeze().cpu().tolist())
+            y_true.extend(targets.squeeze().cpu().tolist())
+        val_metric = self.criterion(y_true=torch.tensor(y_true), y_pred=torch.tensor(y_pred))
+
+        return val_metric
+
     def coral(self, Dt, Ds, epsilon=1e-6):
         Cs = np.cov(Ds, rowvar=False) + np.eye(Ds.shape[1])
         Ct = np.cov(Dt, rowvar=False) + np.eye(Dt.shape[1])
