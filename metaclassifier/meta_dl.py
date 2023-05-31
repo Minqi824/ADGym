@@ -571,34 +571,34 @@ def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False):
                             ensemble=ensemble,
                             test_dataset=test_dataset)
 
-            # try:
-            if mode == 'two-stage':
-                # retrain the meta predictor if we need to test on the new testing task
-                if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
-                    clf = run_meta.meta_fit()
+            try:
+                if mode == 'two-stage':
+                    # retrain the meta predictor if we need to test on the new testing task
+                    if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
+                        clf = run_meta.meta_fit()
+                    else:
+                        print('Using the trained meta predictor to predict...')
+
+                    clf.test_la = test_la
+                    perf = clf.meta_predict(metric=metric.lower())
+
+                elif mode == 'end-to-end':
+                    # retrain the meta predictor if we need to test on the new testing task
+                    if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
+                        clf = run_meta.meta_fit_end2end()
+                    else:
+                        print('Using the trained meta predictor to predict...')
+
+                    clf.test_la = test_la
+                    perf = clf.meta_predict_end2end(metric=metric.lower())
+
                 else:
-                    print('Using the trained meta predictor to predict...')
+                    raise NotImplementedError
 
-                clf.test_la = test_la
-                perf = clf.meta_predict(metric=metric.lower())
-
-            elif mode == 'end-to-end':
-                # retrain the meta predictor if we need to test on the new testing task
-                if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
-                    clf = run_meta.meta_fit_end2end()
-                else:
-                    print('Using the trained meta predictor to predict...')
-
-                clf.test_la = test_la
-                perf = clf.meta_predict_end2end(metric=metric.lower())
-
-            else:
-                raise NotImplementedError
-
-            meta_classifier_performance[i] = perf
-            # except Exception as error:
-            #     print(f'Something error when training meta-classifier: {error}')
-            #     meta_classifier_performance[i] = -1
+                meta_classifier_performance[i] = perf
+            except Exception as error:
+                print(f'Something error when training meta-classifier: {error}')
+                meta_classifier_performance[i] = -1
 
             result_SOTA['Meta'] = meta_classifier_performance
 

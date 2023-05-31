@@ -43,6 +43,7 @@ from data_generator import DataGenerator
 from utils import Utils
 import lightgbm as lgb
 from catboost import CatBoostRegressor
+from components import Components
 
 class meta():
     def __init__(self,
@@ -51,7 +52,7 @@ class meta():
                  suffix: str='',
                  grid_mode: int='small',
                  grid_size: int=1000,
-                 gan_specific: bool=False,
+                 ensemble: bool=False,
                  test_dataset: str=None,
                  test_la: int=None,
                  model_name: str=None):
@@ -61,7 +62,7 @@ class meta():
         self.suffix = suffix
         self.grid_mode = grid_mode
         self.grid_size = grid_size
-        self.gan_specific = gan_specific
+        self.ensemble = ensemble
 
         self.test_dataset = test_dataset
         self.test_la = test_la
@@ -97,13 +98,12 @@ class meta():
         components_df = components_df.fillna('None')
         components_df = components_df.astype('str')
 
-
         # encode components to int index for preparation
         components_df_index = components_df.copy()
         for col in components_df_index.columns:
             components_df_index[col] = preprocessing.LabelEncoder().fit_transform(components_df_index[col])
 
-        return components_df_index
+        return components_list, components_df_index
 
     # TODO
     # add some constraints to improve the training process of meta classifier, e.g.,
@@ -115,9 +115,9 @@ class meta():
         # generate training data for meta predictor
         meta_features, las, components, performances = [], [], [], []
 
-        for la in [5, 10, 25, 50]:
-            result = pd.read_csv('../result/components-' + self.grid_mode + '-' + str(self.grid_size) + '/result-' + self.metric + '-test-' + '-'.join(
-                [self.suffix, str(la), self.grid_mode, str(self.grid_size), 'GAN', str(self.gan_specific), str(self.seed)]) + '.csv')
+        for la in [5, 10, 20]:
+            result = pd.read_csv('../result/result-' + self.metric + '-test-' + '-'.join(
+                [self.suffix, str(la), self.grid_mode, str(self.grid_size), str(self.seed)]) + '.csv')
             result.rename(columns={'Unnamed: 0': 'Components'}, inplace=True)
 
             # remove dataset of testing task
@@ -130,7 +130,7 @@ class meta():
                 result.iloc[:, i] = r / result.shape[0]
 
             # transform result dataframe for preparation
-            self.components_df_index = self.components_process(result)
+            self.components_list, self.components_df_index = self.components_process(result)
 
             for i in range(result.shape[0]):
                 for j in range(1, result.shape[1]):
@@ -170,7 +170,7 @@ class meta():
 
         return self
 
-    def meta_predict(self):
+    def meta_predict(self, metric=None, top_k=5):
         # 1. meta-feature for testing dataset
         meta_feature_test = np.load(
             '../datasets/meta-features/' + 'meta-features-' + self.test_dataset + '-' + str(self.test_la) + '-' + str(self.seed) + '.npz',
@@ -191,24 +191,77 @@ class meta():
         # predicting
         pred = self.model.predict(X_test)
 
-        # since we have already train-test all the components on each dataset,
-        # we can only inquire the experiment result with no information leakage
-        result = pd.read_csv('../result/components-' + self.grid_mode + '-' + str(self.grid_size) + '/result-' + self.metric + '-test-' + '-'.join(
-            [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), 'GAN',
-             str(self.gan_specific), str(self.seed)]) + '.csv')
+        if self.ensemble:
+            # data
+            data_generator_ensemble = DataGenerator(dataset=self.test_dataset, seed=self.seed)
+            data = data_generator_ensemble.generator(la=self.test_la, meta=False)
 
-        truth = np.argsort(np.argsort(-result.loc[:, self.test_dataset].fillna(0).values)) / result.shape[0]
-        print(np.corrcoef(pred, truth))
+            score_ensemble = []; count_top_k = 0
+            assert len(self.components_list) == pred.shape[0]
 
-        for _ in np.argsort(pred.squeeze()):
-            pred_performance = result.loc[_.item(), self.test_dataset]
-            if not pd.isnull(pred_performance):
-                break
+            for i, idx in enumerate(np.argsort(pred)):
+                print(f'fitting top {i + 1}-th base model...')
+                gym = self.components_list[idx]
+                print(f'Components: {gym}')
+                try:
+                    com = Components(seed=self.seed,
+                                     data=data.copy(),
+                                     augmentation=gym['augmentation'],
+                                     gan_specific_path=self.test_dataset + '-' + str(self.test_la) + '-' + str(self.seed) + '.npz',
+                                     preprocess=gym['preprocess'],
+                                     network_architecture=gym['network_architecture'],
+                                     hidden_size_list=gym['hidden_size_list'],
+                                     act_fun=gym['act_fun'],
+                                     dropout=gym['dropout'],
+                                     network_initialization=gym['network_initialization'],
+                                     training_strategy=gym['training_strategy'],
+                                     loss_name=gym['loss_name'],
+                                     optimizer_name=gym['optimizer_name'],
+                                     batch_resample=gym['batch_resample'],
+                                     epochs=gym['epochs'],
+                                     batch_size=gym['batch_size'],
+                                     lr=gym['lr'],
+                                     weight_decay=gym['weight_decay'])
+                    # fit
+                    com.f_train()
+                    # predict and ensemble
+                    (score_train, score_test), _ = com.f_predict_score()
+                    score_ensemble.append(score_test)
+
+                    count_top_k += 1
+                except Exception as error:
+                    print(f'Error when fitting top {i + 1}-th base model, error: {error}')
+                    pass
+                    continue
+
+                if count_top_k >= top_k:
+                    break
+
+                # evaluate (notice that the scale of predicted anomaly score could be different in base models)
+            score_ensemble = np.stack(score_ensemble).T;
+            assert score_ensemble.shape[1] == top_k
+            score_ensemble = np.apply_along_axis(lambda x: np.argsort(np.argsort(x)) / len(x), 0, score_ensemble)
+            score_ensemble = np.mean(score_ensemble, axis=1)
+            pred_performance = self.utils.metric(y_true=data['y_test'], y_score=score_ensemble)[metric]
+
+        else:
+            # since we have already train-test all the components on each dataset,
+            # we can only inquire the experiment result with no information leakage
+            result = pd.read_csv('../result/result-' + self.metric + '-test-' + '-'.join(
+                [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), str(self.seed)]) + '.csv')
+
+            truth = np.argsort(np.argsort(-result.loc[:, self.test_dataset].fillna(0).values)) / result.shape[0]
+            print(np.corrcoef(pred, truth))
+
+            for _ in np.argsort(pred.squeeze()):
+                pred_performance = result.loc[_.item(), self.test_dataset]
+                if not pd.isnull(pred_performance):
+                    break
 
         return pred_performance
 
 # experiments for two-stage or end-to-end version of meta classifer
-def run(suffix, grid_mode, grid_size, gan_specific, model_name):
+def run(suffix, grid_mode, grid_size, model_name, ensemble):
     # run experiments for comparing proposed meta classifier and current SOTA methods
     utils = Utils()
 
@@ -236,10 +289,10 @@ def run(suffix, grid_mode, grid_size, gan_specific, model_name):
             # 1. rs: random selection;
             # 2. ss: selection based on the labeled anomalies in the training set of testing task
             # 3. gt: ground truth where the best model can always be selected
-            result_meta_baseline_train = pd.read_csv('../result/components-' + grid_mode + '-' + str(grid_size) + '/result-' + metric + '-train-' + '-'.join(
-                [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific), str(test_seed)]) + '.csv')
-            result_meta_baseline_test = pd.read_csv('../result/components-' + grid_mode + '-' + str(grid_size) + '/result-' + metric + '-test-' + '-'.join(
-                [suffix, str(test_la), grid_mode, str(grid_size), 'GAN', str(gan_specific), str(test_seed)]) + '.csv')
+            result_meta_baseline_train = pd.read_csv('../result/result-' + metric + '-train-' + '-'.join(
+                [suffix, str(test_la), grid_mode, str(grid_size), str(test_seed)]) + '.csv')
+            result_meta_baseline_test = pd.read_csv('../result/result-' + metric + '-test-' + '-'.join(
+                [suffix, str(test_la), grid_mode, str(grid_size), str(test_seed)]) + '.csv')
 
             # random search
             for _ in range(result_meta_baseline_train.shape[0]):
@@ -270,7 +323,7 @@ def run(suffix, grid_mode, grid_size, gan_specific, model_name):
                             suffix=suffix,
                             grid_mode=grid_mode,
                             grid_size=grid_size,
-                            gan_specific=gan_specific,
+                            ensemble=ensemble,
                             test_dataset=test_dataset,
                             model_name=model_name)
 
@@ -282,7 +335,7 @@ def run(suffix, grid_mode, grid_size, gan_specific, model_name):
                     print('Using the trained meta classifier to predict...')
 
                 clf.test_la = test_la
-                perf = clf.meta_predict()
+                perf = clf.meta_predict(metric=metric.lower())
 
                 meta_classifier_performance[i] = perf
             except Exception as error:
@@ -290,15 +343,13 @@ def run(suffix, grid_mode, grid_size, gan_specific, model_name):
                 meta_classifier_performance[i] = -1
 
             result_SOTA['Meta'] = meta_classifier_performance
-
-            result_SOTA.to_csv('../result/' + metric + '-meta-ml-' + model_name + '.csv', index=False)
+            result_SOTA.to_csv('../result/' + metric + '-meta-ml-' + model_name + '-' + str(ensemble) + '.csv', index=False)
 
             test_dataset_previous = test_dataset
             test_seed_previous = test_seed
 
 # formal experiments
-# run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, model_name='LightGBM')
-# run(suffix='formal', grid_mode='small', grid_size=1000, gan_specific=False, model_name='CatBoost')
-
-run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, model_name='LightGBM')
-run(suffix='formal', grid_mode='large', grid_size=1000, gan_specific=False, model_name='CatBoost')
+# grid_mode: ['small', 'large']
+# model_name: ['LightGBM', 'CatBoost']
+# ensemble: bool
+run(suffix='formal', grid_mode='small', grid_size=1000, model_name='CatBoost', ensemble=True)
