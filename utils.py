@@ -103,8 +103,8 @@ class Utils():
             batch_meta_features, batch_la, batch_components, batch_y = [_.to(device) for _ in batch]
             _, pred = model(batch_meta_features, batch_la.unsqueeze(1), batch_components)
 
-            y_pred_batch = pred.squeeze().cpu().tolist(); y_pred.extend(y_pred_batch)
-            y_true_batch = batch_y.squeeze().cpu().tolist(); y_true.extend(y_true_batch)
+            y_pred_batch = pred.squeeze().cpu(); y_pred.extend(y_pred_batch.tolist())
+            y_true_batch = batch_y.squeeze().cpu(); y_true.extend(y_true_batch.tolist())
             val_metric_batch.append(self.criterion(y_true=y_true_batch, y_pred=y_pred_batch, mode=mode))
 
         if mode == 'ranknet':
@@ -122,8 +122,8 @@ class Utils():
             X_list, y_list, la_list, components, targets = meta_data_batch
             _, _, pred = model(X_list, y_list, la_list, components)
 
-            y_pred_batch = pred.squeeze().cpu().tolist(); y_pred.extend(y_pred_batch)
-            y_true_batch = targets.squeeze().cpu().tolist(); y_true.extend(y_true_batch)
+            y_pred_batch = pred.squeeze().cpu(); y_pred.extend(y_pred_batch.tolist())
+            y_true_batch = targets.squeeze().cpu(); y_true.extend(y_true_batch.tolist())
             val_metric_batch.append(self.criterion(y_true=y_true_batch, y_pred=y_pred_batch, mode=mode))
 
         if mode == 'ranknet':

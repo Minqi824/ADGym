@@ -301,7 +301,7 @@ class meta():
 
     ############################## meta predictor of end-to-end version ##############################
     # dataloader for end2end meta predictor version, n_samples_upper_bound=256, n_features_upper_bound=100
-    def dataloader(self, meta_data, downsample=True, n_samples_upper_bound=16, n_features_upper_bound=100):
+    def dataloader(self, meta_data, downsample=True, n_samples_upper_bound=256, n_features_upper_bound=100):
         self.utils.set_seed(self.seed)
 
         X_list, y_list, la_list, components, targets = [], [], [], [], []
@@ -429,7 +429,7 @@ class meta():
 
             score_ensemble = []; count_top_k = 0
             assert len(self.components_list) == preds.shape[0]
-            for i, idx in enumerate(np.argsort(pred)):
+            for i, idx in enumerate(np.argsort(preds)):
                 print(f'fitting top {i + 1}-th base model...')
                 gym = self.components_list[idx]
                 print(f'Components: {gym}')
@@ -437,8 +437,7 @@ class meta():
                     com = Components(seed=self.seed,
                                      data=data.copy(),
                                      augmentation=gym['augmentation'],
-                                     gan_specific_path=self.test_dataset + '-' + str(self.test_la) + '-' + str(
-                                         self.seed) + '.npz',
+                                     gan_specific_path=self.test_dataset + '-' + str(self.test_la) + '-' + str(self.seed) + '.npz',
                                      preprocess=gym['preprocess'],
                                      network_architecture=gym['network_architecture'],
                                      hidden_size_list=gym['hidden_size_list'],
@@ -568,36 +567,38 @@ def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False):
                             suffix=suffix,
                             grid_mode=grid_mode,
                             grid_size=grid_size,
+                            loss_name=loss_name,
+                            ensemble=ensemble,
                             test_dataset=test_dataset)
 
-            try:
-                if mode == 'two-stage':
-                    # retrain the meta predictor if we need to test on the new testing task
-                    if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
-                        clf = run_meta.meta_fit()
-                    else:
-                        print('Using the trained meta predictor to predict...')
-
-                    clf.test_la = test_la
-                    perf = clf.meta_predict(metric=metric.lower())
-
-                elif mode == 'end-to-end':
-                    # retrain the meta predictor if we need to test on the new testing task
-                    if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
-                        clf = run_meta.meta_fit_end2end()
-                    else:
-                        print('Using the trained meta predictor to predict...')
-
-                    clf.test_la = test_la
-                    perf = clf.meta_predict_end2end(metric=metric.lower())
-
+            # try:
+            if mode == 'two-stage':
+                # retrain the meta predictor if we need to test on the new testing task
+                if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
+                    clf = run_meta.meta_fit()
                 else:
-                    raise NotImplementedError
+                    print('Using the trained meta predictor to predict...')
 
-                meta_classifier_performance[i] = perf
-            except Exception as error:
-                print(f'Something error when training meta-classifier: {error}')
-                meta_classifier_performance[i] = -1
+                clf.test_la = test_la
+                perf = clf.meta_predict(metric=metric.lower())
+
+            elif mode == 'end-to-end':
+                # retrain the meta predictor if we need to test on the new testing task
+                if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
+                    clf = run_meta.meta_fit_end2end()
+                else:
+                    print('Using the trained meta predictor to predict...')
+
+                clf.test_la = test_la
+                perf = clf.meta_predict_end2end(metric=metric.lower())
+
+            else:
+                raise NotImplementedError
+
+            meta_classifier_performance[i] = perf
+            # except Exception as error:
+            #     print(f'Something error when training meta-classifier: {error}')
+            #     meta_classifier_performance[i] = -1
 
             result_SOTA['Meta'] = meta_classifier_performance
 
@@ -618,5 +619,4 @@ def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False):
 # loss_name: ['pearson', 'ranknet', 'mse', 'weighted_mse']
 # ensemble: bool
 # mode: either 'two-stage' or 'end-to-end'
-run(suffix='formal', grid_mode='large', grid_size=1000, loss_name='ranknet', ensemble=False, mode='two-stage')
-
+run(suffix='formal', grid_mode='large', grid_size=1000, loss_name='ranknet', ensemble=False, mode='end-to-end')
