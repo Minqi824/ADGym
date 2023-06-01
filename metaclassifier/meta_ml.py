@@ -263,6 +263,9 @@ class meta():
 def run(suffix, grid_mode, grid_size, model_name, ensemble):
     # run experiments for comparing proposed meta classifier and current SOTA methods
     utils = Utils()
+    file_path = 'meta-' + grid_mode + '-' + str(grid_size)
+    if not os.path.exists('../result/' + file_path):
+        os.makedirs('../result/' + file_path)
 
     for metric in ['AUCROC', 'AUCPR']:
         # result of current SOTA models
@@ -342,7 +345,7 @@ def run(suffix, grid_mode, grid_size, model_name, ensemble):
                 meta_classifier_performance[i] = -1
 
             result_SOTA['Meta'] = meta_classifier_performance
-            result_SOTA.to_csv('../result/' + metric + '-meta-ml-' + model_name + '-' + str(ensemble) + '.csv', index=False)
+            result_SOTA.to_csv('../result/' + file_path + '/' + metric + '-meta-ml-' + model_name + '-' + str(ensemble) + '.csv', index=False)
 
             test_dataset_previous = test_dataset
             test_seed_previous = test_seed
