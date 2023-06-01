@@ -334,8 +334,9 @@ class meta():
         # set seed for reproductive results
         self.utils.set_seed(self.seed)
 
-        meta_data = []
-        for la in [5, 10, 20]:
+        meta_data = []; la_list = [5, 10, 20]
+        self.scaler_las = MinMaxScaler(clip=True).fit(np.array(la_list).reshape(-1, 1))
+        for la in la_list:
             result = pd.read_csv('../result/result-' + self.metric + '-test-' + '-'.join(
                 [self.suffix, str(la), self.grid_mode, str(self.grid_size), str(self.seed)]) + '.csv')
             result.rename(columns={'Unnamed: 0': 'Components'}, inplace=True)
@@ -362,10 +363,10 @@ class meta():
                 meta_data_batch = []
                 for j in range(result.shape[0]):
                     if not pd.isnull(result.iloc[j, i]):  # set nan to 0?
-                        meta_data_batch.append({'X_train': data['X_train'],
+                        meta_data_batch.append({'X_train': MinMaxScaler(clip=True).fit_transform(data['X_train']),
                                                 'y_train': data['y_train'],
                                                 'dataset_idx': i,
-                                                'la': la,
+                                                'la': self.scaler_las.transform(np.array([[la]])).item(),
                                                 'components': self.components_df_index.iloc[j, :].values,
                                                 'performance': result.iloc[j, i]})
                 if len(meta_data_batch) > 0:
@@ -413,9 +414,10 @@ class meta():
         # notice that we can only use the training set of the testing task
         preds = []; self.model.eval()
         for i in range(self.components_df_index.shape[0]):
-            X_list_test = [torch.from_numpy(test_data['X_train']).float().to(self.device)]
+
+            X_list_test = [torch.from_numpy(MinMaxScaler(clip=True).fit_transform(test_data['X_train'])).float().to(self.device)]
             y_list_test = [torch.from_numpy(test_data['y_train']).float().to(self.device)]
-            la_test = torch.tensor([[self.test_la]]).to(self.device)
+            la_test = torch.tensor([[self.scaler_las.transform(np.array([[self.test_la]])).item()]]).to(self.device)
             components_test = torch.from_numpy(self.components_df_index.values[i, :].reshape(1, -1)).float().to(self.device)
             with torch.no_grad():
                 _, _, pred = self.model(X_list_test, y_list_test, la_test, components_test)
@@ -487,27 +489,32 @@ class meta():
 
 # demo for debugging
 def run_demo():
-    run_meta = meta(seed=1,
+    run_meta = meta(seed=2,
                     metric='AUCPR',
                     suffix='formal',
                     grid_mode='small',
                     grid_size=1000,
-                    test_dataset='44_Wilt')
+                    loss_name='pearson',
+                    ensemble=False,
+                    test_dataset='40_vowels')
 
-    clf = run_meta.meta_fit()
-    clf.test_la = 25
-    perf = clf.meta_predict()
-    print(perf)
-
-    # clf = run_meta.meta_fit_end2end()
-    # clf.test_la = 10
-    # perf = clf.meta_predict_end2end()
+    # clf = run_meta.meta_fit()
+    # clf.test_la = 25
+    # perf = clf.meta_predict()
     # print(perf)
+
+    clf = run_meta.meta_fit_end2end()
+    clf.test_la = 20
+    perf = clf.meta_predict_end2end()
+    print(perf)
 
 # experiments for two-stage or end-to-end version of meta predictor
 def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False):
     # run experiments for comparing proposed meta predictor and current SOTA methods
     utils = Utils()
+    file_path = 'meta-' + grid_mode + '-' + str(grid_size)
+    if not os.path.exists('../result/' + file_path):
+        os.makedirs('../result/' + file_path)
 
     for metric in ['AUCROC', 'AUCPR']:
         # result of current SOTA models
@@ -603,9 +610,9 @@ def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False):
             result_SOTA['Meta'] = meta_classifier_performance
 
             if mode == 'two-stage':
-                result_SOTA.to_csv('../result/' + metric + '-' + loss_name + '-' + str(ensemble) + '-meta-dl-twostage.csv', index=False)
+                result_SOTA.to_csv('../result/' + file_path + '/' + metric + '-' + loss_name + '-' + str(ensemble) + '-meta-dl-twostage.csv', index=False)
             elif mode == 'end-to-end':
-                result_SOTA.to_csv('../result/' + metric + '-' + loss_name + '-' + str(ensemble) + '-meta-dl-end2end.csv', index=False)
+                result_SOTA.to_csv('../result/' + file_path + '/' + metric + '-' + loss_name + '-' + str(ensemble) + '-meta-dl-end2end.csv', index=False)
             else:
                 raise NotImplementedError
 
@@ -619,4 +626,4 @@ def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False):
 # loss_name: ['pearson', 'ranknet', 'mse', 'weighted_mse']
 # ensemble: bool
 # mode: either 'two-stage' or 'end-to-end'
-run(suffix='formal', grid_mode='large', grid_size=1000, loss_name='ranknet', ensemble=False, mode='end-to-end')
+run(suffix='formal', grid_mode='small', grid_size=1000, loss_name='weighted_mse', ensemble=False, mode='two-stage')

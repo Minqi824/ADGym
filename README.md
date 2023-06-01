@@ -86,3 +86,5 @@ run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-
 - 2023.05.22: fixed the bug that modified the original data during the process of conducting the experiment.
 - 2023.05.22: optimized code efficiency
 - 2023.05.29: fixed the bug in REPEN model
+- 2023.06.01: fixed the bug in data preprocessing of meta predictor (end-to-end mode)
+- 2023.06.01: replace the LightGBM by XGBoost (which is faster) for ml-based meta predictor

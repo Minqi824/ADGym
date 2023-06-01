@@ -41,8 +41,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from data_generator import DataGenerator
 from utils import Utils
-import lightgbm as lgb
-from catboost import CatBoostRegressor
+import xgboost as xgb
 from components import Components
 
 class meta():
@@ -161,8 +160,8 @@ class meta():
 
         X = np.concatenate((meta_features, las, components), axis=1)
 
-        if self.model_name == 'LightGBM':
-            self.model = lgb.LGBMRegressor(random_state=self.seed).fit(X, performances)
+        if self.model_name == 'XGBoost':
+            self.model = xgb.XGBRegressor(random_state=self.seed).fit(X, performances)
         elif self.model_name == 'CatBoost':
             self.model = catboost.CatBoostRegressor(random_state=self.seed).fit(X, performances)
         else:
@@ -350,6 +349,6 @@ def run(suffix, grid_mode, grid_size, model_name, ensemble):
 
 # formal experiments
 # grid_mode: ['small', 'large']
-# model_name: ['LightGBM', 'CatBoost']
+# model_name: ['XGBoost', 'CatBoost']
 # ensemble: bool
-run(suffix='formal', grid_mode='small', grid_size=1000, model_name='CatBoost', ensemble=True)
+run(suffix='formal', grid_mode='small', grid_size=1000, model_name='XGBoost', ensemble=True)
