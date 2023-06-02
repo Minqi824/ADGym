@@ -234,8 +234,6 @@ class Components():
                 self.data['y_train'] = new_y
                 np.savez_compressed('datasets/data-aug/' + self.gan_specific_path, new_X=new_X, new_y=new_y)
 
-
-
         else:
             raise NotImplementedError
 
