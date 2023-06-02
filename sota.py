@@ -69,8 +69,11 @@ class RunPipeline():
             from baseline.DAGMM.run import DAGMM
 
             # from pyod
-            for _ in ['IForest', 'OCSVM', 'CBLOF', 'COF', 'COPOD', 'ECOD', 'FeatureBagging', 'HBOS', 'KNN', 'LODA',
-                      'LOF', 'LSCP', 'MCD', 'PCA', 'SOD', 'SOGAAL', 'MOGAAL', 'DeepSVDD']:
+            # for _ in ['IForest', 'OCSVM', 'CBLOF', 'COF', 'COPOD', 'ECOD', 'FeatureBagging', 'HBOS', 'KNN', 'LODA',
+            #           'LOF', 'LSCP', 'MCD', 'PCA', 'SOD', 'SOGAAL', 'MOGAAL', 'DeepSVDD']:
+            #     self.model_dict[_] = PYOD
+
+            for _ in ['IForest', 'ECOD', 'DeepSVDD']:
                 self.model_dict[_] = PYOD
 
             # DAGMM
@@ -261,5 +264,5 @@ class RunPipeline():
                 df_time_inference.to_csv(os.path.join(os.getcwd(), 'result', 'Time-inference-' + self.suffix + '.csv'), index=True)
 
 # run the above pipeline for reproducing the results in the paper
-pipeline = RunPipeline(suffix='SOTA', parallel='semi-supervise', mode='nla')
+pipeline = RunPipeline(suffix='SOTA', parallel='unsupervise', mode='nla')
 pipeline.run()

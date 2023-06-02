@@ -626,4 +626,4 @@ def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False):
 # loss_name: ['pearson', 'ranknet', 'mse', 'weighted_mse']
 # ensemble: bool
 # mode: either 'two-stage' or 'end-to-end'
-run(suffix='formal', grid_mode='small', grid_size=1000, loss_name='ranknet', ensemble=False, mode='end-to-end')
+run(suffix='formal', grid_mode='small', grid_size=1000, loss_name='weighted_mse', ensemble=False, mode='end-to-end')
