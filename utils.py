@@ -101,6 +101,7 @@ class Utils():
             t = torch.linspace(0, 1, y_pred.size(0))
             # 计算指数函数
             exponential_decay = torch.exp(torch.log(torch.tensor(end / start)) * decay_factor * t) * start
+            exponential_decay = exponential_decay.to(y_pred.device)
 
             idx_sort = torch.argsort(0.8 * y_true + 0.2 * y_pred)
             y_pred = y_pred[idx_sort]
