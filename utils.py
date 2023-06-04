@@ -72,19 +72,37 @@ class Utils():
             criterion = nn.MSELoss()
             metric = -criterion(y_pred, y_true)
 
+        # elif mode == 'weighted_mse':
+        #     # 定义起始值、结束值和衰减因子
+        #     start = 1.00
+        #     end = 0.01
+        #     decay_factor = 1.0
+        #
+        #     # 生成等间隔的向量
+        #     t = torch.linspace(0, 1, y_pred.size(0))
+        #     # 计算指数函数
+        #     exponential_decay = torch.exp(torch.log(torch.tensor(end / start)) * decay_factor * t) * start
+        #     exponential_decay = exponential_decay.to(y_pred.device)
+        #
+        #     idx_sort = torch.argsort(y_true)
+        #     y_pred = y_pred[idx_sort]
+        #     y_true = y_true[idx_sort]
+        #
+        #     metric = torch.sum((torch.pow((y_pred - y_true), 2) * exponential_decay))
+        #     metric = -metric
+
         elif mode == 'weighted_mse':
             # 定义起始值、结束值和衰减因子
             start = 1.00
             end = 0.01
-            decay_factor = 1.0
+            decay_factor = 0.5
 
             # 生成等间隔的向量
             t = torch.linspace(0, 1, y_pred.size(0))
             # 计算指数函数
             exponential_decay = torch.exp(torch.log(torch.tensor(end / start)) * decay_factor * t) * start
-            exponential_decay = exponential_decay.to(y_pred.device)
 
-            idx_sort = torch.argsort(y_true)
+            idx_sort = torch.argsort(0.8 * y_true + 0.2 * y_pred)
             y_pred = y_pred[idx_sort]
             y_true = y_true[idx_sort]
 

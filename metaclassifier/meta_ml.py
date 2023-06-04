@@ -354,4 +354,4 @@ def run(suffix, grid_mode, grid_size, model_name, ensemble):
 # grid_mode: ['small', 'large']
 # model_name: ['XGBoost', 'CatBoost']
 # ensemble: bool
-run(suffix='formal', grid_mode='small', grid_size=1000, model_name='XGBoost', ensemble=True)
+run(suffix='formal', grid_mode='large', grid_size=1000, model_name='CatBoost', ensemble=False)

@@ -52,10 +52,14 @@ class RunPipeline():
                                             n_samples_lower_bound=self.n_samples_lower_bound,
                                             n_samples_upper_bound=self.n_samples_upper_bound)
 
-        # # ratio of labeled anomalies
-        self.rla_list = [0.05, 0.10, 0.20]
-        # number of labeled anomalies
-        self.nla_list = [5, 10, 20]
+        if self.parallel != 'unsupervise':
+            # ratio of labeled anomalies
+            self.rla_list = [0.05, 0.10, 0.20]
+            # number of labeled anomalies
+            self.nla_list = [5, 10, 20]
+        else:
+            self.rla_list = [0.0]
+            self.nla_list = [0]
 
         # seed list
         self.seed_list = list(np.arange(3) + 1)
