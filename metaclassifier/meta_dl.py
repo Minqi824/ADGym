@@ -52,6 +52,7 @@ class meta():
                  grid_size: int = 1000,
                  loss_name: str = None,
                  ensemble: bool = True,
+                 refine: bool = False,
                  test_dataset: str = None,
                  test_la: int = None):
 
@@ -62,6 +63,7 @@ class meta():
         self.grid_size = grid_size
         self.loss_name = loss_name
         self.ensemble = ensemble
+        self.refine = refine
 
         self.test_dataset = test_dataset
         self.test_la = test_la
@@ -122,6 +124,12 @@ class meta():
             # remove dataset of testing task
             result.drop([self.test_dataset], axis=1, inplace=True)
             assert self.test_dataset not in result.columns
+
+            if self.refine:
+                ave_perf = result.iloc[:, 1:].apply(np.nanmean, axis=1).values
+                self.idx_refine = (ave_perf >= np.nanmedian(ave_perf))
+                result = result[self.idx_refine]; result.reset_index(drop=True, inplace=True)
+                print(f'The shape of refined result: {result.shape}')
 
             # using the rank ratio as target (todo: reverse this training target)
             for i in range(1, result.shape[1]):
@@ -292,6 +300,9 @@ class meta():
             # we can only inquire the experiment result with no information leakage
             result = pd.read_csv('../result/result-' + self.metric + '-test-' + '-'.join(
                 [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), str(self.seed)]) + '.csv')
+            if self.refine:
+                result = result[self.idx_refine]; result.reset_index(drop=True, inplace=True)
+
             for _ in torch.argsort(pred.squeeze()):
                 pred_performance = result.loc[_.item(), self.test_dataset]
                 if not pd.isnull(pred_performance):
@@ -344,6 +355,12 @@ class meta():
             # remove dataset of testing task
             result.drop([self.test_dataset], axis=1, inplace=True)
             assert self.test_dataset not in result.columns
+
+            if self.refine:
+                ave_perf = result.iloc[:, 1:].apply(np.nanmean, axis=1).values
+                self.idx_refine = (ave_perf >= np.nanmedian(ave_perf))
+                result = result[self.idx_refine]; result.reset_index(drop=True, inplace=True)
+                print(f'The shape of refined result: {result.shape}')
 
             # using the rank ratio as target
             for i in range(1, result.shape[1]):
@@ -480,6 +497,8 @@ class meta():
             # we can only inquire the experiment result with no information leakage
             result = pd.read_csv('../result/result-' + self.metric + '-test-' + '-'.join(
                 [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), str(self.seed)]) + '.csv')
+            if self.refine:
+                result = result[self.idx_refine]; result.reset_index(drop=True, inplace=True)
             for _ in np.argsort(preds):
                 pred_performance = result.loc[_, self.test_dataset]
                 if not pd.isnull(pred_performance):
@@ -509,7 +528,7 @@ def run_demo():
     print(perf)
 
 # experiments for two-stage or end-to-end version of meta predictor
-def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False):
+def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False, refine=False):
     # run experiments for comparing proposed meta predictor and current SOTA methods
     # set seed for reproductive results
     utils = Utils(); utils.set_seed(42)
@@ -574,6 +593,7 @@ def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False):
                             grid_size=grid_size,
                             loss_name=loss_name,
                             ensemble=ensemble,
+                            refine=refine,
                             test_dataset=test_dataset)
 
             try:
@@ -608,9 +628,11 @@ def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False):
             result_SOTA['Meta'] = meta_classifier_performance
 
             if mode == 'two-stage':
-                result_SOTA.to_csv('../result/' + file_path + '/' + metric + '-' + loss_name + '-' + str(ensemble) + '-meta-dl-twostage.csv', index=False)
+                result_SOTA.to_csv('../result/' + file_path + '/' + metric + '-' + loss_name + '-' + str(ensemble)
+                                   + '-' + str(refine) + '-meta-dl-twostage.csv', index=False)
             elif mode == 'end-to-end':
-                result_SOTA.to_csv('../result/' + file_path + '/' + metric + '-' + loss_name + '-' + str(ensemble) + '-meta-dl-end2end.csv', index=False)
+                result_SOTA.to_csv('../result/' + file_path + '/' + metric + '-' + loss_name + '-' + str(ensemble)
+                                   +'-' + str(refine) + '-meta-dl-end2end.csv', index=False)
             else:
                 raise NotImplementedError
 
@@ -624,4 +646,4 @@ def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False):
 # loss_name: ['pearson', 'ranknet', 'mse', 'weighted_mse']
 # ensemble: bool
 # mode: either 'two-stage' or 'end-to-end'
-run(suffix='formal', grid_mode='small', grid_size=1000, loss_name='mse', ensemble=False, mode='two-stage')
+run(suffix='formal', grid_mode='small', grid_size=1000, loss_name='mse', ensemble=False, refine=True, mode='end-to-end')

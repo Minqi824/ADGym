@@ -123,7 +123,6 @@ class Components():
 
             ## network training ##
             gyms['training_strategy'] = [None]
-            gyms['training_strategy'] = [None]
             gyms['loss_name'] = ['bce', 'focal', 'minus', 'inverse', 'hinge', 'deviation'] # ordinal
             gyms['optimizer_name'] = ['SGD', 'Adam', 'RMSprop']
             gyms['batch_resample'] = [True, False]

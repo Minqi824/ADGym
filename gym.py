@@ -118,6 +118,7 @@ class ADGym():
             for j, __ in enumerate(_):
                 gym[keys[j]] = __
 
+            # todo: BCE and focal loss can be batch_resample=False!
             # for inverse loss, we do not perform batch resampling strategy
             if gym['loss_name'] == 'inverse' and gym['batch_resample']:
                 continue
