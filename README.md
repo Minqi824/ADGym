@@ -4,7 +4,7 @@ ADGym is able to applied to unsupervised (to do), semi-/weakly-supervised and fu
 Currently, ADGym is mainly devised for the **tabular** data.
 
 ADGym considers multiple components in each part of the following pipeline:  
-**Data Augmentation** → **Data Preprocessing** → **Network Architecture** → **Network Training**  
+**Data Augmentation** → **Data Preprocessing** → **Network Construction** → **Network Training**  
 
 Each part of the pipeline can be instantiated by multiple components (core components are marked in **bold**):
 | Pipeline | Detailed Components | Value |
