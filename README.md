@@ -1,10 +1,11 @@
-# ADGym :running_man:
+# ADGym :running_man: :Design Choices for Deep Anomaly Detection
 
-ADGym is able to applied to unsupervised (to do), semi-/weakly-supervised and fully-supervised scenarios.
-Currently, ADGym is mainly devised for the **tabular** data.
+ADGym performs large **benchmark** and automatical selection of AD design choices,
+where AD design dimensions/choices are acquired (listed in the following Table) by decoupling the standard AD research pipeline:
 
-ADGym considers multiple components in each part of the following pipeline:  
 **Data Augmentation** → **Data Preprocessing** → **Network Construction** → **Network Training**  
+
+Currently, ADGym is mainly devised for the **tabular** data.
 
 Each part of the pipeline can be instantiated by multiple components (core components are marked in **bold**):
 | Pipeline | Detailed Components | Value |
