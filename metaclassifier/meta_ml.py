@@ -52,6 +52,7 @@ class meta():
                  grid_mode: int='small',
                  grid_size: int=1000,
                  ensemble: bool=False,
+                 refine: bool=False,
                  test_dataset: str=None,
                  test_la: int=None,
                  model_name: str=None):
@@ -62,6 +63,7 @@ class meta():
         self.grid_mode = grid_mode
         self.grid_size = grid_size
         self.ensemble = ensemble
+        self.refine = refine
 
         self.test_dataset = test_dataset
         self.test_la = test_la
@@ -122,6 +124,12 @@ class meta():
             # remove dataset of testing task
             result.drop([self.test_dataset], axis=1, inplace=True)
             assert self.test_dataset not in result.columns
+
+            if self.refine:
+                ave_perf = result.iloc[:, 1:].apply(np.nanmean, axis=1).values
+                self.idx_refine = (ave_perf >= np.nanmedian(ave_perf))
+                result = result[self.idx_refine]; result.reset_index(drop=True, inplace=True)
+                print(f'The shape of refined result: {result.shape}')
 
             # using the rank ratio as target
             for i in range(1, result.shape[1]):
@@ -248,6 +256,8 @@ class meta():
             # we can only inquire the experiment result with no information leakage
             result = pd.read_csv('../result/result-' + self.metric + '-test-' + '-'.join(
                 [self.suffix, str(self.test_la), self.grid_mode, str(self.grid_size), str(self.seed)]) + '.csv')
+            if self.refine:
+                result = result[self.idx_refine]; result.reset_index(drop=True, inplace=True)
 
             truth = np.argsort(np.argsort(-result.loc[:, self.test_dataset].fillna(0).values)) / result.shape[0]
             print(np.corrcoef(pred, truth))
@@ -260,7 +270,7 @@ class meta():
         return pred_performance
 
 # experiments for two-stage or end-to-end version of meta classifer
-def run(suffix, grid_mode, grid_size, model_name, ensemble):
+def run(suffix, grid_mode, grid_size, model_name, ensemble, refine):
     # run experiments for comparing proposed meta classifier and current SOTA methods
     utils = Utils()
     file_path = 'meta-' + grid_mode + '-' + str(grid_size)
@@ -326,6 +336,7 @@ def run(suffix, grid_mode, grid_size, model_name, ensemble):
                             grid_mode=grid_mode,
                             grid_size=grid_size,
                             ensemble=ensemble,
+                            refine=refine,
                             test_dataset=test_dataset,
                             model_name=model_name)
 
@@ -345,7 +356,8 @@ def run(suffix, grid_mode, grid_size, model_name, ensemble):
                 meta_classifier_performance[i] = -1
 
             result_SOTA['Meta'] = meta_classifier_performance
-            result_SOTA.to_csv('../result/' + file_path + '/' + metric + '-meta-ml-' + model_name + '-' + str(ensemble) + '.csv', index=False)
+            result_SOTA.to_csv('../result/' + file_path + '/' + metric + '-meta-ml-' + model_name + '-' + str(ensemble) +
+                               '-' + str(refine) + '.csv', index=False)
 
             test_dataset_previous = test_dataset
             test_seed_previous = test_seed
@@ -354,4 +366,4 @@ def run(suffix, grid_mode, grid_size, model_name, ensemble):
 # grid_mode: ['small', 'large']
 # model_name: ['XGBoost', 'CatBoost']
 # ensemble: bool
-run(suffix='formal', grid_mode='large', grid_size=1000, model_name='CatBoost', ensemble=False)
+run(suffix='formal', grid_mode='small', grid_size=1000, model_name='XGBoost', ensemble=True, refine=True)

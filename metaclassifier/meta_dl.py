@@ -632,7 +632,7 @@ def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False, refi
                                    + '-' + str(refine) + '-meta-dl-twostage.csv', index=False)
             elif mode == 'end-to-end':
                 result_SOTA.to_csv('../result/' + file_path + '/' + metric + '-' + loss_name + '-' + str(ensemble)
-                                   +'-' + str(refine) + '-meta-dl-end2end.csv', index=False)
+                                   + '-' + str(refine) + '-meta-dl-end2end.csv', index=False)
             else:
                 raise NotImplementedError
 

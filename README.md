@@ -9,27 +9,26 @@ ADGym considers multiple components in each part of the following pipeline:
 Each part of the pipeline can be instantiated by multiple components (core components are marked in **bold**):
 | Pipeline | Detailed Components | Value |
 |:--:|:--:|:--:|
-|**Data Augmentation**||[Oversampling, SMOTE, Mixup, GAN]|
+|Data Augmentation||[Oversampling, SMOTE, Mixup, GAN]|
 |Data Preprocessing||[MinMax, Normalization]|
-|Network Architecture|**Network Architecture**|[MLP, AutoEncoder, ResNet, FTTransformer]|
-||Hidden Layers|[1, 2, 3]|
-||Neurons|[[20], [100, 20], [100, 50, 20]]|
-||**Activation**|[Tanh, ReLU, LeakyReLU]|
+|Network Construction|Network Architecture|[MLP, AutoEncoder, ResNet, FTTransformer]|
+||Hidden Layers|[[20], [100, 20], [100, 50, 20]]|
+||Activation|[Tanh, ReLU, LeakyReLU]|
 ||Dropout|[0.0, 0.1, 0.3]|
-||**Initialization**|[PyTorch default, Xavier (uniform), Xavier (normal), Kaiming (uniform), Kaiming (normal)]|
-|Network Training|**Loss Function**|[BCE, Focal, Minus, Inverse, Hinge, Deviation, Ordinal]|
-||**Optimizer**|[SGD, Adam, RMSprop]|
-||**Batch Resampling**|[False, True]|
-||**Epochs**|[20, 50, 100]|
+||Initialization|[PyTorch default, Xavier, Kaiming]|
+|Network Training|Loss Function|[BCE, Focal, Minus, Inverse, Hinge, Deviation, Ordinal]|
+||Optimizer|[SGD, Adam, RMSprop]|
+||Batch Resampling|[False, True]|
+||Epochs|[20, 50, 100]|
 ||Batch Size|[16, 64, 256]|
-||**Learning Rate**|[1e-2, 1e-3]|
+||Learning Rate|[1e-2, 1e-3]|
 ||Weight Decay|[1e-2, 1e-4]|
 
 ## Quick Start with ADGym
 
 - For the experimental results of all the components, open the [test_ADGym.py](gym.py) and run:
 ```python
-adgym = ADGym(la=5, grid_mode='small', grid_size=1000, gan_specific=False, suffix='test')
+adgym = ADGym(la=5, grid_mode='small', grid_size=1000, suffix='test')
 adgym.run()
 ```
 
@@ -45,9 +44,9 @@ pipeline.run()
 - For the experimental results of meta classifier (and its counterpart baseline), open the [meta.py](metaclassifier/meta_dl.py) and run:
 ```python
 # two-stage meta classifier, using meta-feature extractor in MetaOD
-run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='two-stage')
+run(suffix='', grid_mode='small', grid_size=1000, mode='two-stage')
 # end-to-end meta classifier
-run(suffix='', grid_mode='small', grid_size=1000, gan_specific=False, mode='end-to-end')
+run(suffix='', grid_mode='small', grid_size=1000, mode='end-to-end')
 ```
 
 ## Python Package Requirements
