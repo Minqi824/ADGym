@@ -25,7 +25,7 @@ Each part of the pipeline can be instantiated by multiple components (core compo
 ||Learning Rate|[1e-2, 1e-3]|
 ||Weight Decay|[1e-2, 1e-4]|
 
-## Quick Start with ADGym
+## Quick Start with ADGym!
 
 - For the experimental results of all the components, open the [test_ADGym.py](gym.py) and run:
 ```python

@@ -1,6 +1,49 @@
 import torch
 from torch import nn
 
+# Using Encoder-Decoder model structure for pretraining
+class Pretrained_Model(nn.Module):
+    def __init__(self, encoder, decoder):
+        super(Pretrained_Model, self).__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+
+    def forward(self, X):
+        # ModuleList
+        for e in self.encoder:
+            X = e(X)
+
+        for d in self.decoder:
+            X = d(X)
+        return X
+
+class Pretrained_Model_ResNet(nn.Module):
+    def __init__(self, input_size, model):
+        super(Pretrained_Model_ResNet, self).__init__()
+        self.encoder_decoder = nn.Sequential(
+                model.first_layer,
+                model.blocks,
+                nn.Linear(128, input_size)
+            )
+
+    def forward(self, X):
+        X = self.encoder_decoder(X)
+        return X
+
+class Pretrained_Model_FTT(nn.Module):
+    def __init__(self, input_size, model):
+        super(Pretrained_Model_FTT, self).__init__()
+        self.encoder_decoder = nn.Sequential(
+                model.feature_tokenizer,
+                model.cls_token,
+                model.transformer,
+                nn.Linear(8, input_size)
+            )
+
+    def forward(self, X):
+        X = self.encoder_decoder(X)
+        return X
+
 # MLP backbone
 class MLP(nn.Module):
     def __init__(self, layers, input_size, hidden_size_list, act_fun, p):

@@ -581,16 +581,17 @@ def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False, refi
             #         meta_baseline_rs_performance[i] = perf; del perf
             #         break
 
+            # rs: random search
             meta_baseline_rs_performance[i] = np.nanmean(result_meta_baseline_test.loc[:, test_dataset])
 
-            # select the best components based on the performance in the training set of testing task (i.e., test dataset)
+            # ss: select the best components based on the performance in the training set of testing task (i.e., test dataset)
             for _ in np.argsort(-result_meta_baseline_train.loc[:, test_dataset].values):
                 perf = result_meta_baseline_test.loc[_, test_dataset]
                 if not pd.isnull(perf):
                     meta_baseline_ss_performance[i] = perf; del perf
                     break
 
-            # ground truth
+            # gt: ground truth
             perf = np.max(result_meta_baseline_test.loc[:, test_dataset])
             meta_baseline_gt_performance[i] = perf; del perf
 
@@ -598,58 +599,56 @@ def run(suffix, grid_mode, grid_size, mode, loss_name=None, ensemble=False, refi
             result_SOTA['Meta_baseline_ss'] = meta_baseline_ss_performance
             result_SOTA['Meta_baseline_gt'] = meta_baseline_gt_performance
 
-            # # run meta predictor
-            # run_meta = meta(seed=test_seed,
-            #                 metric=metric,
-            #                 suffix=suffix,
-            #                 grid_mode=grid_mode,
-            #                 grid_size=grid_size,
-            #                 loss_name=loss_name,
-            #                 ensemble=ensemble,
-            #                 refine=refine,
-            #                 test_dataset=test_dataset)
-            #
-            # try:
-            #     if mode == 'two-stage':
-            #         # retrain the meta predictor if we need to test on the new testing task
-            #         if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
-            #             clf = run_meta.meta_fit()
-            #         else:
-            #             print('Using the trained meta predictor to predict...')
-            #
-            #         clf.test_la = test_la
-            #         perf = clf.meta_predict(metric=metric.lower())
-            #
-            #     elif mode == 'end-to-end':
-            #         # retrain the meta predictor if we need to test on the new testing task
-            #         if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
-            #             clf = run_meta.meta_fit_end2end()
-            #         else:
-            #             print('Using the trained meta predictor to predict...')
-            #
-            #         clf.test_la = test_la
-            #         perf = clf.meta_predict_end2end(metric=metric.lower())
-            #
-            #     else:
-            #         raise NotImplementedError
-            #
-            #     meta_classifier_performance[i] = perf
-            # except Exception as error:
-            #     print(f'Something error when training meta-classifier: {error}')
-            #     meta_classifier_performance[i] = -1
-            #
-            # result_SOTA['Meta'] = meta_classifier_performance
-            #
-            # if mode == 'two-stage':
-            #     result_SOTA.to_csv('../result/' + file_path + '/' + metric + '-' + loss_name + '-' + str(ensemble)
-            #                        + '-' + str(refine) + '-meta-dl-twostage.csv', index=False)
-            # elif mode == 'end-to-end':
-            #     result_SOTA.to_csv('../result/' + file_path + '/' + metric + '-' + loss_name + '-' + str(ensemble)
-            #                        + '-' + str(refine) + '-meta-dl-end2end.csv', index=False)
-            # else:
-            #     raise NotImplementedError
+            # run meta predictor
+            run_meta = meta(seed=test_seed,
+                            metric=metric,
+                            suffix=suffix,
+                            grid_mode=grid_mode,
+                            grid_size=grid_size,
+                            loss_name=loss_name,
+                            ensemble=ensemble,
+                            refine=refine,
+                            test_dataset=test_dataset)
 
-            result_SOTA.to_csv('../result/' + file_path + '/' + metric + '-debug.csv', index=False)
+            try:
+                if mode == 'two-stage':
+                    # retrain the meta predictor if we need to test on the new testing task
+                    if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
+                        clf = run_meta.meta_fit()
+                    else:
+                        print('Using the trained meta predictor to predict...')
+
+                    clf.test_la = test_la
+                    perf = clf.meta_predict(metric=metric.lower())
+
+                elif mode == 'end-to-end':
+                    # retrain the meta predictor if we need to test on the new testing task
+                    if i == 0 or test_dataset != test_dataset_previous or test_seed != test_seed_previous:
+                        clf = run_meta.meta_fit_end2end()
+                    else:
+                        print('Using the trained meta predictor to predict...')
+
+                    clf.test_la = test_la
+                    perf = clf.meta_predict_end2end(metric=metric.lower())
+
+                else:
+                    raise NotImplementedError
+
+                meta_classifier_performance[i] = perf
+            except Exception as error:
+                print(f'Something error when training meta-classifier: {error}')
+                meta_classifier_performance[i] = -1
+
+            result_SOTA['Meta'] = meta_classifier_performance
+
+            if mode == 'two-stage':
+                result_SOTA.to_csv('../result/' + file_path + '/' + metric + '-' + loss_name + '-' + str(ensemble)
+                                   + '-' + str(refine) + '-meta-dl-twostage.csv', index=False)
+            elif mode == 'end-to-end':
+                result_SOTA.to_csv('../result/' + file_path + '/' + metric + '-' + loss_name + '-' + str(ensemble)
+                                   + '-' + str(refine) + '-meta-dl-end2end.csv', index=False)
+            else:
+                raise NotImplementedError
 
             test_dataset_previous = test_dataset
             test_seed_previous = test_seed

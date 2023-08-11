@@ -1,11 +1,13 @@
 import os
 import sys
+from copy import deepcopy
 import numpy as np
 import pandas as pd
 import random
 import torch
 from torch import nn
 from networks import MLP, MLP_pair, AE
+from networks import Pretrained_Model, Pretrained_Model_ResNet
 import rtdl
 
 from imblearn.over_sampling import SMOTE
@@ -119,7 +121,7 @@ class Components():
             gyms['dropout'] = [0.0, 0.1, 0.2]
             # gyms['network_initialization'] = ['default', 'xavier_uniform', 'xavier_normal',
             #                                   'kaiming_uniform', 'kaiming_normal']
-            gyms['network_initialization'] = ['default', 'xavier_normal', 'kaiming_normal']
+            gyms['network_initialization'] = ['default', 'pretrained', 'xavier_normal', 'kaiming_normal']
 
             ## network training ##
             gyms['training_strategy'] = [None]
@@ -400,18 +402,49 @@ class Components():
 
         return loss
 
-    def f_optimizer(self):
+    def f_optimizer(self, pretrained=False):
         if self.optimizer_name == 'SGD':
-            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
-
+            if pretrained:
+                self.optimizer_pretrained = torch.optim.SGD(self.model_pretrained.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+            else:
+                self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         elif self.optimizer_name == 'Adam':
-            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
-
+            if pretrained:
+                self.optimizer_pretrained = torch.optim.Adam(self.model_pretrained.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+            else:
+                self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         elif self.optimizer_name == 'RMSprop':
-            self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
-
+            if pretrained:
+                self.optimizer_pretrained = torch.optim.RMSprop(self.model_pretrained.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+            else:
+                self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         else:
             raise NotImplementedError
+
+        return self
+
+    def f_pretrained(self):
+        criterion = nn.L1Loss()
+        for epoch in range(self.epochs):
+            loss_batch = []
+            for batch in self.train_loader:
+                # data
+                X, _ = [_.to(self.device) for _ in batch]
+                # clear gradient
+                self.model_pretrained.zero_grad()
+                # loss forward
+                if self.network_architecture == 'FTT':
+                    X_hat = self.model_pretrained(x_num=X, x_cat=None).squeeze()
+                else:
+                    X_hat = self.model_pretrained(X)
+
+                loss = criterion(X, X_hat)
+                # loss backward
+                loss.backward()
+                loss_batch.append(loss.item())
+                # gradient update
+                self.optimizer_pretrained.step()
+            print(f'Pretraining... Epoch: {epoch}, Training loss: {np.mean(loss_batch)}')
 
         return self
 
@@ -426,7 +459,55 @@ class Components():
 
         # network initialization
         self.f_network() # build network
-        self.model.apply(self.f_init_weights) # network weight initialization
+
+        if self.network_initialization == 'pretrained':
+            if self.model.__class__.__name__ == 'MLP':
+                decoder = nn.ModuleList()
+                for i in reversed(range(len(self.model.feature))):
+                    l = deepcopy(self.model.feature[i])
+                    dim_in, dim_out = l[0].out_features, l[0].in_features
+                    l[0] = nn.Linear(dim_in, dim_out)
+                    decoder.append(l)
+
+                self.model_pretrained = Pretrained_Model(encoder=self.model.feature, decoder=decoder)
+                self.f_optimizer(pretrained=True)
+                self.f_pretrained()
+                for l, params_pretrained in zip(self.model.feature, self.model_pretrained.encoder):
+                    l.load_state_dict(params_pretrained.state_dict())
+
+            elif self.model.__class__.__name__ == 'AE':
+                self.model_pretrained = Pretrained_Model(encoder=self.model.encoder, decoder=self.model.decoder)
+                self.f_optimizer(pretrained=True)
+                self.f_pretrained()
+
+                for e, params_pretrained in zip(self.model.encoder, self.model_pretrained.encoder):
+                    e.load_state_dict(params_pretrained.state_dict())
+                for d, params_pretrained in zip(self.model.decoder, self.model_pretrained.decoder):
+                    d.load_state_dict(params_pretrained.state_dict())
+
+            elif self.model.__class__.__name__ == 'ResNet':
+                self.model_pretrained = Pretrained_Model_ResNet(input_size=self.data['X_train'].shape[1], model=self.model)
+                self.f_optimizer(pretrained=True)
+                self.f_pretrained()
+
+                self.model.first_layer.load_state_dict(self.model_pretrained.encoder_decoder[0].state_dict())
+                self.model.blocks.load_state_dict(self.model_pretrained.encoder_decoder[1].state_dict())
+
+            elif self.model.__class__.__name__ == 'FTTransformer':
+                self.model_pretrained = deepcopy(self.model)
+                self.model_pretrained.transformer.head = nn.Linear(8, self.data['X_train'].shape[1])
+                self.f_optimizer(pretrained=True)
+                self.f_pretrained()
+
+                self.model.feature_tokenizer.load_state_dict(self.model_pretrained.feature_tokenizer.state_dict())
+                self.model.cls_token.load_state_dict(self.model_pretrained.cls_token.state_dict())
+                self.model.transformer.blocks.load_state_dict(self.model_pretrained.transformer.blocks.state_dict())
+            else:
+                raise NotImplementedError
+
+            del self.model_pretrained; self.model.train()
+        else:
+            self.model.apply(self.f_init_weights) # network weight initialization
 
         # optimizer
         self.f_optimizer()

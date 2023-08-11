@@ -245,5 +245,5 @@ class ADGym():
 
                 del data
 
-adgym = ADGym(suffix='formal', la=5, grid_mode='large', grid_size=1000, seed_list=[1, 2, 3])
+adgym = ADGym(suffix='test', la=10, grid_mode='large', grid_size=1000, seed_list=[1, 2, 3])
 adgym.run()
