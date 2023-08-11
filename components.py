@@ -470,6 +470,7 @@ class Components():
                     decoder.append(l)
 
                 self.model_pretrained = Pretrained_Model(encoder=self.model.feature, decoder=decoder)
+                self.model_pretrained.to(self.device)
                 self.f_optimizer(pretrained=True)
                 self.f_pretrained()
                 for l, params_pretrained in zip(self.model.feature, self.model_pretrained.encoder):
@@ -477,6 +478,7 @@ class Components():
 
             elif self.model.__class__.__name__ == 'AE':
                 self.model_pretrained = Pretrained_Model(encoder=self.model.encoder, decoder=self.model.decoder)
+                self.model_pretrained.to(self.device)
                 self.f_optimizer(pretrained=True)
                 self.f_pretrained()
 
@@ -487,6 +489,7 @@ class Components():
 
             elif self.model.__class__.__name__ == 'ResNet':
                 self.model_pretrained = Pretrained_Model_ResNet(input_size=self.data['X_train'].shape[1], model=self.model)
+                self.model_pretrained.to(self.device)
                 self.f_optimizer(pretrained=True)
                 self.f_pretrained()
 
@@ -496,6 +499,7 @@ class Components():
             elif self.model.__class__.__name__ == 'FTTransformer':
                 self.model_pretrained = deepcopy(self.model)
                 self.model_pretrained.transformer.head = nn.Linear(8, self.data['X_train'].shape[1])
+                self.model_pretrained.to(self.device)
                 self.f_optimizer(pretrained=True)
                 self.f_pretrained()
 
