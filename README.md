@@ -10,7 +10,7 @@ Currently, ADGym is mainly devised for the **tabular** data.
 Each part of the pipeline can be instantiated by multiple components (core components are marked in **bold**):
 | Pipeline | Detailed Components | Value |
 |:--:|:--:|:--:|
-|Data Augmentation||[Oversampling, SMOTE, Mixup, GAN]|
+|Data Augmentation||[Oversampling, SMOTE, Mixup, GAN]
 |Data Preprocessing||[MinMax, Normalization]|
 |Network Construction|Network Architecture|[MLP, AutoEncoder, ResNet, FTTransformer]|
 ||Hidden Layers|[[20], [100, 20], [100, 50, 20]]|
